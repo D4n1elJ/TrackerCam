@@ -33,14 +33,58 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private let videoOutput = AVCaptureVideoDataOutput()
     private var device: AVCaptureDevice?
     private var connection: AVCaptureConnection?
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
 
     private var sequence: UInt64 = 0
     private(set) var sessionGeneration: UInt64 = 0
     private(set) var effective: EffectiveConfiguration?
 
+    /// Capture-interruption callbacks (plan §14). Invoked on the main queue.
+    var onInterruption: (@Sendable (CaptureInterruptionReason) -> Void)?
+    var onInterruptionEnded: (@Sendable () -> Void)?
+    private var notificationObservers: [NSObjectProtocol] = []
+
     init(router: FrameRouter) {
         self.router = router
         super.init()
+        registerInterruptionObservers()
+    }
+
+    private func registerInterruptionObservers() {
+        let nc = NotificationCenter.default
+        notificationObservers.append(nc.addObserver(
+            forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main
+        ) { [weak self] note in
+            self?.onInterruption?(Self.mapReason(note))
+        })
+        notificationObservers.append(nc.addObserver(
+            forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: .main
+        ) { [weak self] _ in
+            self?.onInterruptionEnded?()
+        })
+        notificationObservers.append(nc.addObserver(
+            forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main
+        ) { [weak self] note in
+            // A media-services reset surfaces here; treat as needing a fresh segment + session.
+            if let err = note.userInfo?[AVCaptureSessionErrorKey] as? AVError,
+               err.code == .mediaServicesWereReset {
+                self?.onInterruption?(.mediaServicesReset)
+            }
+        })
+    }
+
+    private static func mapReason(_ note: Notification) -> CaptureInterruptionReason {
+        guard let raw = note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int,
+              let reason = AVCaptureSession.InterruptionReason(rawValue: raw) else { return .videoInUse }
+        switch reason {
+        case .videoDeviceNotAvailableInBackground: return .backgrounded
+        case .audioDeviceInUseByAnotherClient: return .audioInUse
+        case .videoDeviceInUseByAnotherClient: return .videoInUse
+        case .videoDeviceNotAvailableWithMultipleForegroundApps: return .videoInUse
+        case .videoDeviceNotAvailableDueToSystemPressure: return .systemPressure
+        case .sensitiveContentMitigationActivated: return .videoInUse
+        @unknown default: return .videoInUse
+        }
     }
 
     // MARK: - Authorization
@@ -121,6 +165,15 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         // Stabilization: prefer Cinematic Extended, fall back (plan §9).
         conn.preferredVideoStabilizationMode = Self.bestStabilization(for: conn, requested: .cinematicExtended)
 
+        // Orientation: rotate delivered buffers to match how the phone is physically held (plan §9).
+        // Without this the back camera's native-landscape buffer appears rotated.
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
+        self.rotationCoordinator = coordinator
+        let angle = coordinator.videoRotationAngleForHorizonLevelCapture
+        if conn.isVideoRotationAngleSupported(angle) {
+            conn.videoRotationAngle = angle
+        }
+
         sessionGeneration &+= 1
 
         let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
@@ -200,11 +253,13 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         sequence &+= 1
         let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        let dims = effective?.dimensions ?? CMVideoDimensions(width: 3840, height: 2160)
+        // Use the delivered buffer's actual dimensions (rotation swaps width/height).
+        let w = CVPixelBufferGetWidth(pixelBuffer)
+        let h = CVPixelBufferGetHeight(pixelBuffer)
         let ctx = FrameContext(
             sequenceNumber: sequence,
             presentationTime: pts,
-            sourceDimensions: CGSize(width: Int(dims.width), height: Int(dims.height)),
+            sourceDimensions: CGSize(width: w, height: h),
             rotationAngle: connection.videoRotationAngle,
             isMirrored: connection.isVideoMirrored,
             sessionGeneration: sessionGeneration,

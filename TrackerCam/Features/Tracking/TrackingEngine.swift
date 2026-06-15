@@ -48,6 +48,17 @@ actor TrackingEngine {
         stateMachine = TrackingStateMachine(config: newSettings.trackingConfig)
     }
 
+    /// Release the current target and return to idle (double-tap "let go").
+    func clearTarget() {
+        currentSeed = nil
+        trackingRequest = nil
+        stateMachine.reset()
+        kalman = KalmanFilter2D(
+            processNoise: Self.processNoise(for: settings.smoothingStrength),
+            measurementNoise: 1.0
+        )
+    }
+
     /// Manual / auto seed (tap-to-track or Refocus). `pixelRect` is in source pixels.
     /// Uses the most recent frame timestamp internally so the state machine clock stays monotonic.
     func seed(pixelRect: TCRect) {

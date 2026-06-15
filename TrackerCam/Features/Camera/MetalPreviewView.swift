@@ -15,6 +15,7 @@ struct MetalPreviewView: UIViewRepresentable {
         view.framebufferOnly = true
         view.preferredFramesPerSecond = 60
         view.isOpaque = true
+        view.clearColor = MTLClearColorMake(0, 0, 0, 1)  // letterbox bars
         context.coordinator.configure(device: view.device)
         return view
     }
@@ -50,9 +51,17 @@ struct MetalPreviewView: UIViewRepresentable {
                   let rpd = view.currentRenderPassDescriptor,
                   let cmd = queue?.makeCommandBuffer(),
                   let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) else { return }
+
+            // Aspect-FILL the texture into the drawable (full screen, crop the overflow; no skew).
+            let texA = Float(texture.width) / Float(texture.height)
+            let drwA = Float(drawable.texture.width) / Float(drawable.texture.height)
+            var scale = SIMD2<Float>(1, 1)
+            if drwA > texA { scale.y = drwA / texA } else { scale.x = texA / drwA }
+
             enc.setRenderPipelineState(pipeline)
+            enc.setVertexBytes(&scale, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
             enc.setFragmentTexture(texture, index: 0)
-            enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+            enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
             enc.endEncoding()
             cmd.present(drawable)
             cmd.commit()

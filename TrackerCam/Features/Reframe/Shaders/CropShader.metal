@@ -48,13 +48,15 @@ struct BlitVertexOut {
     float2 uv;
 };
 
-vertex BlitVertexOut blitVertex(uint vid [[vertex_id]]) {
-    // Full-screen triangle.
-    float2 positions[3] = { float2(-1.0, -3.0), float2(-1.0, 1.0), float2(3.0, 1.0) };
-    float2 uvs[3]       = { float2(0.0, 2.0),  float2(0.0, 0.0), float2(2.0, 0.0) };
+// Aspect-fit quad (triangle strip, 4 verts). `scale` letterboxes the texture into the drawable;
+// uv.v is flipped so the camera image is upright on screen.
+vertex BlitVertexOut blitVertex(uint vid [[vertex_id]],
+                                constant float2& scale [[buffer(0)]]) {
+    float2 pos[4] = { float2(-1.0, 1.0), float2(-1.0, -1.0), float2(1.0, 1.0), float2(1.0, -1.0) };
+    float2 uv[4]  = { float2(0.0, 1.0),  float2(0.0, 0.0),   float2(1.0, 1.0),  float2(1.0, 0.0) };
     BlitVertexOut out;
-    out.position = float4(positions[vid], 0.0, 1.0);
-    out.uv = uvs[vid];
+    out.position = float4(pos[vid] * scale, 0.0, 1.0);
+    out.uv = uv[vid];
     return out;
 }
 

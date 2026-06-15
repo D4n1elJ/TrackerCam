@@ -5,7 +5,10 @@ import TrackerCamCore
 struct CameraView: View {
     @State var viewModel: CameraViewModel
     @State private var showSettings = false
+    @State private var showRecordings = false
     @AppStorage("trackercam.hasOnboarded") private var hasOnboarded = false
+    @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
+    @AppStorage("trackercam.showGrid") private var showGrid = false
 
     var body: some View {
         GeometryReader { geo in
@@ -16,24 +19,51 @@ struct CameraView: View {
                     MetalPreviewView(viewModel: viewModel)
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
+                        .onTapGesture(count: 2) { viewModel.clearTarget() }   // double-tap = release target
                         .onTapGesture { location in
                             viewModel.refocus(atNormalizedPoint: CGPoint(
                                 x: location.x / geo.size.width,
                                 y: location.y / geo.size.height))
                         }
 
+                    if showGrid { GridOverlayView() }
+
                     OverlayView(state: viewModel.trackingState,
                                 subjectRect: viewModel.subjectViewRect,
                                 hint: viewModel.guidanceHint,
+                                confidence: viewModel.confidence,
                                 viewSize: geo.size)
 
                     controls
+                }
+            }
+            .overlay(alignment: .top) {
+                if let cd = viewModel.storageCountdown {
+                    Text("Storage full — stopping in \(cd)s")
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(.red, in: Capsule())
+                        .foregroundStyle(.white)
+                        .padding(.top, 90)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if showDebugHUD && !viewModel.permissionDenied {
+                    DebugHUDView(fps: viewModel.fps, state: viewModel.trackingState,
+                                 confidence: viewModel.confidence, thermal: viewModel.thermalLevelText,
+                                 config: viewModel.effectiveConfigSummary)
+                        .padding(.top, 56).padding(.trailing, 12)
                 }
             }
         }
         .task(id: hasOnboarded) { if hasOnboarded { await viewModel.onAppear() } }
         .onDisappear { viewModel.onDisappear() }
         .sheet(isPresented: $showSettings) { SettingsView() }
+        .sheet(isPresented: $showRecordings) { RecordingsView() }
+        // Hardware Camera Control / volume buttons start-stop recording (plan §14). Device-only.
+        .onCameraCaptureEvent { event in
+            if event.phase == .ended { viewModel.toggleRecording() }
+        }
         .sheet(isPresented: .constant(!hasOnboarded)) {
             OnboardingView { hasOnboarded = true }
                 .interactiveDismissDisabled()
@@ -45,6 +75,10 @@ struct CameraView: View {
             HStack {
                 statusBadge
                 Spacer()
+                if viewModel.batteryLow {
+                    Label("Low battery", systemImage: "battery.25")
+                        .font(.caption2.bold()).foregroundStyle(.orange)
+                }
                 Text(viewModel.effectiveConfigSummary)
                     .font(.caption2.monospaced())
                     .foregroundStyle(.white.opacity(0.7))
@@ -63,10 +97,16 @@ struct CameraView: View {
 
             // Right-hand grip: primary controls hug the trailing edge (plan §12).
             HStack {
-                Button { showSettings = true } label: {
-                    Image(systemName: "gearshape.fill").font(.title2)
+                VStack(spacing: 16) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill").font(.title2)
+                    }
+                    .frame(width: 52, height: 52)
+                    Button { showRecordings = true } label: {
+                        Image(systemName: "film.stack").font(.title2)
+                    }
+                    .frame(width: 52, height: 52)
                 }
-                .frame(width: 52, height: 52)
                 .foregroundStyle(.white)
 
                 Spacer()

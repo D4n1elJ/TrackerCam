@@ -5,6 +5,8 @@ import TrackerCamCore
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
+    @AppStorage("trackercam.showGrid") private var showGrid = false
 
     var body: some View {
         @Bindable var store = store
@@ -23,6 +25,7 @@ struct SettingsView: View {
                 }
 
                 Section("Framing") {
+                    Toggle("Rule-of-thirds grid", isOn: $showGrid)
                     Picker("Aspect", selection: $store.settings.aspectRatio) {
                         Text("16:9").tag(AspectRatioMode.landscape16x9)
                         Text("9:16").tag(AspectRatioMode.portrait9x16)
@@ -67,6 +70,14 @@ struct SettingsView: View {
                         Text("Both").tag(SaveDestination.both)
                     }
                     Toggle("Overlay in recording", isOn: $store.settings.overlayInRecording)
+                }
+
+                Section("Advanced") {
+                    Picker("Detection model", selection: $store.settings.detectionModel) {
+                        Text("Standard").tag(DetectionModel.standard)
+                        Text("Equestrian").tag(DetectionModel.equestrian)
+                    }
+                    Toggle("Show debug HUD", isOn: $showDebugHUD)
                 }
 
                 Section {

@@ -15,6 +15,21 @@ final class RecordingStore {
 
     struct Result { var appURL: URL?; var savedToPhotos: Bool }
 
+    /// Saved recordings in the app library, newest first.
+    func recordings() -> [URL] {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])) ?? []
+        return urls.filter { $0.pathExtension == "mov" }.sorted {
+            let a = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let b = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return a > b
+        }
+    }
+
+    func delete(_ url: URL) {
+        try? FileManager.default.removeItem(at: url)
+    }
+
     /// - Parameters:
     ///   - tempURL: the writer's finalized temp file.
     ///   - destination: where the user wants it.

@@ -69,12 +69,23 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 ## Status
 
-- **Core logic:** implemented test-first; all checks passing.
-- **iOS app:** foundational scaffold (capture → track → reframe → preview → record happy path),
-  following PLAN.md §6/§16. Hardware-gated specifics are marked `TODO` and must be validated via the
-  **Phase 0 Spike Checklist** (PLAN.md §17) on a physical iPhone 17 Pro.
-- **Not yet done (per plan phases):** fine-tuned equestrian model, mini-map, onboarding, dual-encode
-  modes, sidecar metadata, full interruption/continuation handling, save-destination file moves.
+- **Core logic (`TrackerCamCore`):** 11 modules, **167 checks passing** (`Scripts/verify.sh`) —
+  VisionGeometry, KalmanFilter2D, CropMath, CropController (asymmetric zoom + hysteresis),
+  CropPlanner (lost ladder), TrackingStateMachine, GuidanceEngine, TrackerSettings,
+  InterruptionPolicy, StoragePolicy.
+- **iOS app:** **builds clean (0 errors) and installs + launches in the iPhone 17 Pro simulator.**
+  Implemented: capture pipeline, Vision tracking + Core ML detection hook, Metal reframe
+  (preview+record from one pass), rate-limited/smoothed crop, recording + finalization
+  (app library / Photos) + recordings browser, guidance arrows, mini-map, confidence ring,
+  debug HUD, onboarding, interruption/continuation handling, low-storage countdown, battery
+  warning, hardware capture-button control.
+- **Requires the physical iPhone 17 Pro (PLAN.md §17 Phase 0) — cannot be validated in the
+  simulator:** the live 4K capture→track→reframe→encode pipeline, exposure/metering, format/
+  stabilization/SDR validation, physical-button behavior, thermal-under-load.
+- **Needs an external asset:** drop `YOLO26n_horse.mlpackage` into `TrackerCam/Resources/Models/`
+  to activate horse detection (the detector returns nil until then; tap-to-track works regardless).
+- **Deferred (post-v1 per plan):** fine-tuned equestrian model, true 4K "Full only" / dual-encode,
+  sidecar metadata, identity continuity, accel/jerk crop limits (field-tuned).
 
 ## Device validation gates before trusting any capture mode
 

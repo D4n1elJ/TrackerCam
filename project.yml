@@ -43,6 +43,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.trackercam.app
         INFOPLIST_FILE: TrackerCam/App/Info.plist
         CODE_SIGN_ENTITLEMENTS: TrackerCam/App/TrackerCam.entitlements
+        DEVELOPMENT_TEAM: J98R4BWQVY
+        CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1" # iPhone only for v1
         # Landscape-first capture (plan §4/§12); portrait secondary.
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeRight UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationPortrait"

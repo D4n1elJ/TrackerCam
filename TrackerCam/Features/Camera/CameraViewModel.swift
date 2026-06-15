@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Observation
 import AVFoundation
 import CoreMedia
@@ -26,6 +27,9 @@ final class CameraViewModel {
     private(set) var cropInSourceRect: CGRect?
     private(set) var confidence: Double = 0
     private(set) var fps: Double = 0
+    /// Seconds remaining in the low-storage countdown, nil when not counting down (plan §14).
+    private(set) var storageCountdown: Int?
+    private(set) var batteryLow = false  // < 20% (plan §15)
 
     /// The latest reframed texture for the Metal preview (read by MetalPreviewView).
     private(set) var latestPreviewTexture: MTLTexture?
@@ -41,6 +45,16 @@ final class CameraViewModel {
     private var recording: RecordingService?
     private let thermal = ThermalManager()
 
+    /// Thermal level as text for the debug HUD (plan §12/§15).
+    var thermalLevelText: String {
+        switch thermal.level {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        }
+    }
+
     private var streamContinuation: AsyncStream<FramePayload>.Continuation?
     private var consumerTask: Task<Void, Never>?
     private var lastDetectAt: Double = -.greatestFiniteMagnitude
@@ -48,6 +62,14 @@ final class CameraViewModel {
     private var smoothedFPS: Double = 0
     private var cropController = CropController()
     private let cropPlanner = CropPlanner()
+    private let interruptionPolicy = InterruptionPolicy()
+    private var pendingContinuation = false
+    private var userRequestedStop = false
+    private let storagePolicy = StoragePolicy()
+    private let haptics = UINotificationFeedbackGenerator()
+    private var lowSpaceSince: Double?
+    private var lastStorageCheckT: Double = -.greatestFiniteMagnitude
+    private var cachedFreeBytes: Int64 = .max
     private var lastKnownCenter: TCPoint?
     private var lastVelocity: TCPoint = .zero
     private var lostSince: Double?
@@ -67,6 +89,7 @@ final class CameraViewModel {
 
     func onAppear() async {
         guard await CameraService.requestAccess() else { permissionDenied = true; return }
+        UIDevice.current.isBatteryMonitoringEnabled = true
 
         let outputSize = Self.outputSize(for: settingsStore.settings.aspectRatio)
         reframe = ReframePipeline(outputSize: outputSize)
@@ -80,6 +103,14 @@ final class CameraViewModel {
         let continuation = streamContinuation
         router.onFrame = { payload in
             continuation?.yield(payload)
+        }
+
+        // Interruption handling (plan §14): finalize-and-continue / stop per policy.
+        camera.onInterruption = { [weak self] reason in
+            Task { @MainActor in self?.handleInterruption(reason) }
+        }
+        camera.onInterruptionEnded = { [weak self] in
+            Task { @MainActor in self?.handleInterruptionEnded() }
         }
         consumerTask = Task { [weak self] in
             guard let self else { return }
@@ -126,29 +157,106 @@ final class CameraViewModel {
         Task { await trackingEngine.seed(pixelRect: seed) }
     }
 
+    /// Release the current target (double-tap "let go") and ease back to a wide centered crop.
+    func clearTarget() {
+        cropController.reset()
+        lostSince = nil
+        Task { await trackingEngine.clearTarget() }
+    }
+
     func toggleRecording() {
-        if isRecording { Task { await stopRecording() } }
-        else { startRecording() }
+        if isRecording {
+            userRequestedStop = true
+            pendingContinuation = false
+            Task { await stopRecording() }
+        } else {
+            userRequestedStop = false
+            startRecording()
+        }
+    }
+
+    // MARK: - Interruptions (plan §14)
+
+    private func handleInterruption(_ reason: CaptureInterruptionReason) {
+        let action = interruptionPolicy.action(reason: reason, isRecording: isRecording,
+                                               cameraAccessRevoked: permissionDenied)
+        switch action {
+        case .keepRecording:
+            break  // transient (e.g. audio in use) — writer stays active
+        case .finalizeAndContinue:
+            guard isRecording else { return }
+            pendingContinuation = true   // resume into a new segment when the interruption ends
+            Task { await stopRecording(continuation: true) }
+        case .stopAndFinalize:
+            guard isRecording else { return }
+            pendingContinuation = false
+            Task { await stopRecording() }
+        }
+    }
+
+    private func handleInterruptionEnded() {
+        guard pendingContinuation, !userRequestedStop else { return }
+        pendingContinuation = false
+        startRecording()  // continuation segment under the same logical session
     }
 
     private func startRecording() {
         guard let recording else { return }
+        // Pre-record storage check (plan §14).
+        if storagePolicy.isCritical(freeBytes: freeBytes(), bitrateBytesPerSecond: currentBitrate()) {
+            effectiveConfigSummary = "Not enough storage to record"
+            return
+        }
         let fps = Int(camera.effective?.frameRate ?? 30)
         do {
             try recording.start(frameRate: fps)
             isRecording = true
             recordStartPTS = .invalid
+            lowSpaceSince = nil
+            storageCountdown = nil
         } catch {
             effectiveConfigSummary = "Recorder failed: \(error)"
         }
     }
 
-    private func stopRecording() async {
+    /// Live low-space monitor (plan §14): on a critical threshold, run a 5s countdown then stop.
+    private func monitorStorage(now t: Double) async {
+        if t - lastStorageCheckT >= 1.0 {        // throttle the filesystem query
+            lastStorageCheckT = t
+            cachedFreeBytes = freeBytes()
+        }
+        guard storagePolicy.isCritical(freeBytes: cachedFreeBytes, bitrateBytesPerSecond: currentBitrate()) else {
+            if lowSpaceSince != nil { lowSpaceSince = nil; storageCountdown = nil }
+            return
+        }
+        if lowSpaceSince == nil { lowSpaceSince = t }
+        let remaining = 5.0 - (t - (lowSpaceSince ?? t))
+        storageCountdown = max(0, Int(ceil(remaining)))
+        if remaining <= 0 {
+            await stopRecording()
+            storageCountdown = nil
+            effectiveConfigSummary = "Stopped — storage full"
+        }
+    }
+
+    private func freeBytes() -> Int64 {
+        (try? URL.documentsDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage) ?? .max
+    }
+
+    private func currentBitrate() -> Double {
+        let out = Self.outputSize(for: settingsStore.settings.aspectRatio)
+        let fps = camera.effective?.frameRate ?? 30
+        return StoragePolicy.estimatedBitrateBytesPerSecond(width: Int(out.width), height: Int(out.height), fps: fps)
+    }
+
+    private func stopRecording(continuation: Bool = false) async {
         guard let recording else { return }
         let (url, dropped) = await recording.finish()
         isRecording = false
         elapsed = 0
         guard let url else { effectiveConfigSummary = "Save failed"; return }
+        _ = continuation  // segment finalized; handleInterruptionEnded() will start the next one
 
         // Move temp file → app library / Photos per settings.saveDestination (plan §14).
         let s = settingsStore.settings
@@ -236,6 +344,7 @@ final class CameraViewModel {
         if isRecording, !thermal.mustStopRecording {
             if recordStartPTS == .invalid { recordStartPTS = ctx.presentationTime }
             recording?.append(pixelBuffer: rendered.pixelBuffer, presentationTime: ctx.presentationTime)
+            await monitorStorage(now: t)
         } else if isRecording, thermal.mustStopRecording {
             await stopRecording()   // critical thermal → stop & finalize (plan §15 / D19)
         }
@@ -252,11 +361,21 @@ final class CameraViewModel {
         let cropFraction = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
                                   width: crop.width / source.width, height: crop.height / source.height)
         await MainActor.run {
+            // Haptics on lock/lost transitions (plan §12), gated by the guidance-haptics setting.
+            let prevState = self.trackingState
+            if self.settingsStore.settings.guidanceHaptics, prevState != result.state {
+                if result.state == .locked { self.haptics.notificationOccurred(.success) }
+                else if result.state == .lost { self.haptics.notificationOccurred(.warning) }
+            }
             self.trackingState = result.state
             self.latestPreviewTexture = rendered.texture
             self.subjectViewRect = subjectInCrop
             self.guidanceHint = hint
             self.cropInSourceRect = cropFraction
+            self.confidence = result.confidence
+            self.fps = self.smoothedFPS
+            let level = UIDevice.current.batteryLevel
+            self.batteryLow = level >= 0 && level < 0.2
             if self.isRecording, self.recordStartPTS.isValid {
                 self.elapsed = ctx.presentationTime.seconds - self.recordStartPTS.seconds
             }

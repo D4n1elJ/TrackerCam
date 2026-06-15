@@ -6,6 +6,7 @@ struct OverlayView: View {
     let state: TrackingState
     let subjectRect: CGRect?     // normalized [0,1] in preview space
     let hint: GuidanceEngine.Hint?
+    let confidence: Double
     let viewSize: CGSize
 
     var body: some View {
@@ -17,6 +18,17 @@ struct OverlayView: View {
                     .stroke(boxColor, style: StrokeStyle(lineWidth: 3, dash: state == .lost ? [8, 6] : []))
                     .frame(width: frame.width, height: frame.height)
                     .position(x: frame.midX, y: frame.midY)
+
+                // Confidence ring — early warning before loss (plan §12).
+                if state == .tracking || state == .locked {
+                    let d = max(frame.width, frame.height) + 24
+                    Circle()
+                        .trim(from: 0, to: max(0, min(1, confidence)))
+                        .stroke(boxColor.opacity(0.9), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: d, height: d)
+                        .position(x: frame.midX, y: frame.midY)
+                }
             }
 
             if let hint, hint.severity != .none {
