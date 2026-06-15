@@ -5,6 +5,7 @@ import TrackerCamCore
 struct CameraView: View {
     @State var viewModel: CameraViewModel
     @State private var showSettings = false
+    @AppStorage("trackercam.hasOnboarded") private var hasOnboarded = false
 
     var body: some View {
         GeometryReader { geo in
@@ -30,9 +31,13 @@ struct CameraView: View {
                 }
             }
         }
-        .task { await viewModel.onAppear() }
+        .task(id: hasOnboarded) { if hasOnboarded { await viewModel.onAppear() } }
         .onDisappear { viewModel.onDisappear() }
         .sheet(isPresented: $showSettings) { SettingsView() }
+        .sheet(isPresented: .constant(!hasOnboarded)) {
+            OnboardingView { hasOnboarded = true }
+                .interactiveDismissDisabled()
+        }
     }
 
     private var controls: some View {
@@ -45,6 +50,14 @@ struct CameraView: View {
                     .foregroundStyle(.white.opacity(0.7))
             }
             .padding()
+
+            if viewModel.settingsStore.settings.showMiniMap {
+                HStack {
+                    MiniMapView(cropFraction: viewModel.cropInSourceRect, aspect: miniMapAspect)
+                    Spacer()
+                }
+                .padding(.horizontal)
+            }
 
             Spacer()
 
@@ -73,6 +86,11 @@ struct CameraView: View {
             }
             .padding(24)
         }
+    }
+
+    private var miniMapAspect: CGFloat {
+        let r = viewModel.settingsStore.settings.aspectRatio.ratio
+        return r > 0 ? CGFloat(r) : 16.0 / 9.0
     }
 
     private var statusBadge: some View {

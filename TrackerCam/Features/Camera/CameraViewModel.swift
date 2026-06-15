@@ -24,6 +24,8 @@ final class CameraViewModel {
     private(set) var permissionDenied = false
     /// Current crop window as a fraction of the source frame, for the mini-map (plan §12).
     private(set) var cropInSourceRect: CGRect?
+    private(set) var confidence: Double = 0
+    private(set) var fps: Double = 0
 
     /// The latest reframed texture for the Metal preview (read by MetalPreviewView).
     private(set) var latestPreviewTexture: MTLTexture?
@@ -34,6 +36,7 @@ final class CameraViewModel {
     private let camera: CameraService
     private let trackingEngine: TrackingEngine
     private let detection: DetectionService
+    private let recordingStore = RecordingStore()
     private var reframe: ReframePipeline?
     private var recording: RecordingService?
     private let thermal = ThermalManager()
@@ -42,6 +45,7 @@ final class CameraViewModel {
     private var consumerTask: Task<Void, Never>?
     private var lastDetectAt: Double = -.greatestFiniteMagnitude
     private var lastFrameSeconds: Double?
+    private var smoothedFPS: Double = 0
     private var cropController = CropController()
     private let cropPlanner = CropPlanner()
     private var lastKnownCenter: TCPoint?
@@ -144,8 +148,21 @@ final class CameraViewModel {
         let (url, dropped) = await recording.finish()
         isRecording = false
         elapsed = 0
-        effectiveConfigSummary = url != nil ? "Saved (\(dropped) dropped)" : "Save failed"
-        // TODO: move temp file → app library / Photos per settings.saveDestination (plan §14).
+        guard let url else { effectiveConfigSummary = "Save failed"; return }
+
+        // Move temp file → app library / Photos per settings.saveDestination (plan §14).
+        let s = settingsStore.settings
+        let res = Self.outputSize(for: s.aspectRatio)
+        let result = await recordingStore.finalize(
+            tempURL: url, destination: s.saveDestination,
+            mode: s.recordingMode == .trackedOnly ? "tracked" : "full",
+            resolution: "\(Int(res.width))x\(Int(res.height))")
+        switch (result.appURL != nil, result.savedToPhotos) {
+        case (true, true): effectiveConfigSummary = "Saved to app + Photos (\(dropped) dropped)"
+        case (true, false): effectiveConfigSummary = "Saved to app (\(dropped) dropped)"
+        case (false, true): effectiveConfigSummary = "Saved to Photos (\(dropped) dropped)"
+        case (false, false): effectiveConfigSummary = "Save failed"
+        }
     }
 
     // MARK: - Per-frame processing (runs in the consumer task)
@@ -208,6 +225,7 @@ final class CameraViewModel {
 
         let dt = lastFrameSeconds.map { max(1.0 / 240, t - $0) } ?? 1.0 / 60
         lastFrameSeconds = t
+        smoothedFPS = smoothedFPS == 0 ? 1.0 / dt : smoothedFPS * 0.9 + (1.0 / dt) * 0.1
         let crop = cropController.update(dt: dt, desiredCenter: planned.center,
                                          desiredSize: planned.size, source: source)
 

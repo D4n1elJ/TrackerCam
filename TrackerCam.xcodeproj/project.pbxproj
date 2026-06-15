@@ -24,7 +24,9 @@
 		B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880FA74AA118DDADEE66C407 /* ReframePipeline.swift */; };
 		CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */; };
 		CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */; };
+		ED0B10E4891F3A208DEF8A11 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */; };
 		F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0E2491471954DE635B579E /* MetalPreviewView.swift */; };
+		F98C5657A2166E3D76610425 /* RecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 661010AE9037A80E2C768216 /* RecordingStore.swift */; };
 		FBB97D9C7659CEEA9AD9EB16 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CACA31FEC3972D2FF88E5E /* CameraService.swift */; };
 /* End PBXBuildFile section */
 
@@ -36,6 +38,7 @@
 		3C0E2491471954DE635B579E /* MetalPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalPreviewView.swift; sourceTree = "<group>"; };
 		548AEEEF5623022528D3B9BC /* ThermalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalManager.swift; sourceTree = "<group>"; };
 		5A2B84CA3E410DA99E7D30EA /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		661010AE9037A80E2C768216 /* RecordingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingStore.swift; sourceTree = "<group>"; };
 		6DE65B51EF3F9197875C4794 /* MiniMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMapView.swift; sourceTree = "<group>"; };
 		741ACBFDF07738B5B2F1C5F7 /* Geometry+CoreGraphics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Geometry+CoreGraphics.swift"; sourceTree = "<group>"; };
 		84E5615BCE79D74FD8C4564D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -50,6 +53,7 @@
 		D906B993FB652152809EFA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
+		E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -94,6 +98,7 @@
 			isa = PBXGroup;
 			children = (
 				E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */,
+				661010AE9037A80E2C768216 /* RecordingStore.swift */,
 			);
 			path = Recording;
 			sourceTree = "<group>";
@@ -132,6 +137,7 @@
 			isa = PBXGroup;
 			children = (
 				407C07102F8D3CCFD9E63D88 /* Camera */,
+				F842AA0DB8BB6B61889D271D /* Onboarding */,
 				29C5A0ECAEA8F1424F52EE3C /* Recording */,
 				91AC3C9B2EAADA9F18D7F476 /* Reframe */,
 				6CE5B2AF56B9CF148AB7E9CE /* Settings */,
@@ -211,6 +217,14 @@
 				A0AB0B54E07A48924CECB402 /* TrackingEngine.swift */,
 			);
 			path = Tracking;
+			sourceTree = "<group>";
+		};
+		F842AA0DB8BB6B61889D271D /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -294,8 +308,10 @@
 				4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */,
 				F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */,
 				94BA686DC16052BD0FBA4AEB /* MiniMapView.swift in Sources */,
+				ED0B10E4891F3A208DEF8A11 /* OnboardingView.swift in Sources */,
 				147948DE666FFC70EA2A65A0 /* OverlayView.swift in Sources */,
 				CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */,
+				F98C5657A2166E3D76610425 /* RecordingStore.swift in Sources */,
 				B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */,
 				2DA8495A5A9DD9016D86081A /* SettingsStore.swift in Sources */,
 				897E14C4BDCBC09860AABE0D /* SettingsView.swift in Sources */,
