@@ -62,10 +62,13 @@ actor TrackingEngine {
 
     /// Process one analysis frame (downscaled pixel buffer is fine; coordinates are normalized).
     /// `redetect` indicates the caller decided this is a detector cadence frame (plan §8).
-    func process(pixelBuffer: CVPixelBuffer,
-                 context: FrameContext,
+    func process(payload: FramePayload,
                  detector: DetectionService?,
                  redetect: Bool) async -> TrackingResult {
+        // FramePayload is @unchecked Sendable, so the non-Sendable buffer crosses into this actor
+        // under our single-owner contract. The detector runs synchronously (no boundary crossing).
+        let pixelBuffer = payload.pixelBuffer
+        let context = payload.context
         let t = context.presentationTime
         lastSeconds = t.secondsOrZero
         let sourceSize = TCSize(width: Double(context.sourceDimensions.width),
@@ -76,9 +79,9 @@ actor TrackingEngine {
 
         // 1) Detector cadence: (re)acquire / refresh the compound target.
         if redetect, let detector {
-            if let detection = try? await detector.detectCompoundTarget(in: pixelBuffer,
-                                                                        sourceSize: sourceSize,
-                                                                        confidenceThreshold: settings.confidenceThreshold) {
+            if let detection = try? detector.detectCompoundTarget(in: pixelBuffer,
+                                                                  sourceSize: sourceSize,
+                                                                  confidenceThreshold: settings.confidenceThreshold) {
                 subjectPixel = detection.pixelRect
                 confidence = detection.confidence
                 currentSeed = detection.pixelRect

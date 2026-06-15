@@ -8,7 +8,10 @@ import TrackerCamCore
 /// MODEL (plan §8 / §7): expects a YOLO26n Core ML model exporting the COCO classes (`horse`, `person`).
 /// YOLO26 is end-to-end / NMS-free, so no in-app non-maximum suppression is needed for the standard
 /// export. Drop `YOLO26n_horse.mlpackage` into the app bundle (see Resources/Models) before Phase 3.
-actor DetectionService {
+/// A plain (non-actor) `@unchecked Sendable` class: it holds only the immutable Vision model, and
+/// runs synchronously within the caller's isolation domain so the non-Sendable pixel buffer never
+/// crosses an actor boundary. Vision's `perform` is CPU-bound; the caller throttles it by cadence.
+final class DetectionService: @unchecked Sendable {
     struct Detection: Sendable {
         var pixelRect: TCRect
         var confidence: Double
@@ -32,7 +35,7 @@ actor DetectionService {
     /// Returns the best compound horse+rider target in source-pixel coordinates, or nil.
     func detectCompoundTarget(in pixelBuffer: CVPixelBuffer,
                               sourceSize: TCSize,
-                              confidenceThreshold: Double) async throws -> Detection? {
+                              confidenceThreshold: Double) throws -> Detection? {
         guard let visionModel else { return nil }
 
         let request = VNCoreMLRequest(model: visionModel)

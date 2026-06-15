@@ -24,9 +24,8 @@ final class ThermalManager {
         }
     }
 
-    deinit {
-        if let observer { NotificationCenter.default.removeObserver(observer) }
-    }
+    // No deinit: ThermalManager lives for the app session; the single block observer is released
+    // with the process. (Avoids referencing main-actor state from a nonisolated deinit.)
 
     private func update() {
         switch ProcessInfo.processInfo.thermalState {

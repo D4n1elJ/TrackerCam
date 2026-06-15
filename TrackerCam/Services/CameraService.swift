@@ -8,7 +8,7 @@ import TrackerCamCore
 /// IMPORTANT (plan §5 / §17 Phase 0): the exact format + pixel format + stabilization + color space
 /// combination must be validated on physical hardware before a capture mode is exposed in the UI.
 /// This service picks a best-effort 4K SDR configuration and reports the *effective* result.
-final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
 
     enum CameraError: Error {
         case noCamera
@@ -46,9 +46,9 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     // MARK: - Authorization
 
     static func requestAccess() async -> Bool {
-        async let cam = AVCaptureDevice.requestAccess(for: .video)
-        async let mic = AVCaptureDevice.requestAccess(for: .audio)
-        return await cam && mic
+        let cam = await AVCaptureDevice.requestAccess(for: .video)
+        let mic = await AVCaptureDevice.requestAccess(for: .audio)
+        return cam && mic
     }
 
     // MARK: - Configuration

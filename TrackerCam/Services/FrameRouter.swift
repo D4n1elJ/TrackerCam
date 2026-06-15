@@ -29,7 +29,7 @@ struct FramePayload: @unchecked Sendable {
 ///
 /// Backpressure (plan §6): detection is latest-wins (drop stale); tracking is sequential and must
 /// not drop frames. This router exposes both an analysis sink (coalescing) and an ordered sink.
-final class FrameRouter {
+final class FrameRouter: @unchecked Sendable {
     /// Called for every delivered frame, in capture order, on the processing queue.
     /// Consumers must be fast; heavy work should hop to their own queues.
     /// `@Sendable` because it is invoked off the main actor (capture/processing queues).

@@ -22,6 +22,8 @@ final class CameraViewModel {
     private(set) var elapsed: TimeInterval = 0
     private(set) var effectiveConfigSummary: String = ""
     private(set) var permissionDenied = false
+    /// Current crop window as a fraction of the source frame, for the mini-map (plan §12).
+    private(set) var cropInSourceRect: CGRect?
 
     /// The latest reframed texture for the Metal preview (read by MetalPreviewView).
     private(set) var latestPreviewTexture: MTLTexture?
@@ -39,6 +41,12 @@ final class CameraViewModel {
     private var streamContinuation: AsyncStream<FramePayload>.Continuation?
     private var consumerTask: Task<Void, Never>?
     private var lastDetectAt: Double = -.greatestFiniteMagnitude
+    private var lastFrameSeconds: Double?
+    private var cropController = CropController()
+    private let cropPlanner = CropPlanner()
+    private var lastKnownCenter: TCPoint?
+    private var lastVelocity: TCPoint = .zero
+    private var lostSince: Double?
     private var recordStartPTS: CMTime = .invalid
 
     private let processingQueue = DispatchQueue(label: "com.trackercam.processing", qos: .userInitiated)
@@ -110,6 +118,7 @@ final class CameraViewModel {
             seed = TCRect(center: source.center,
                           size: TCSize(width: source.width * 0.3, height: source.height * 0.3))
         }
+        cropController.reset()   // snap to the new target rather than slewing from the old crop
         Task { await trackingEngine.seed(pixelRect: seed) }
     }
 
@@ -153,7 +162,7 @@ final class CameraViewModel {
 
         // Tracking (sequential; the actor + ordered stream keep frames in order).
         let result = await trackingEngine.process(
-            pixelBuffer: payload.pixelBuffer, context: ctx,
+            payload: payload,
             detector: detection.isModelLoaded ? detection : nil, redetect: redetect)
 
         // Crop decision (plan §10).
@@ -162,7 +171,21 @@ final class CameraViewModel {
         let source = TCRect(x: 0, y: 0, width: sourceSize.width, height: sourceSize.height)
         let aspect = s.aspectRatio.ratio == 0 ? sourceSize.aspectRatio : s.aspectRatio.ratio
 
-        let crop: TCRect
+        // Track last-known motion (used to predict during loss) and the lost-onset time.
+        if let center = result.smoothedCenter {
+            lastKnownCenter = center
+            lastVelocity = result.velocity
+        }
+        if result.state == .lost {
+            if lostSince == nil { lostSince = t }
+        } else {
+            lostSince = nil
+        }
+        let secondsSinceLost = lostSince.map { t - $0 } ?? 0
+
+        // Active composed target when we actually have a subject (tracking/locked).
+        var trackCenter: TCPoint?
+        var trackSize: TCSize?
         if let subject = result.subjectPixelRect, let center = result.smoothedCenter {
             let padded = subject.expanded(byFraction: s.subjectPadding)
             let size = s.dynamicZoomEnabled
@@ -170,15 +193,23 @@ final class CameraViewModel {
                                             targetSubjectHeightFraction: s.targetSubjectHeight,
                                             outputAspect: aspect)
                 : Self.outputSizeTC(for: s.aspectRatio)
-            let composed = CropMath.compositionCenter(
+            trackSize = size
+            trackCenter = CropMath.compositionCenter(
                 subjectCenter: center, velocity: result.velocity, cropSize: size,
                 leadFraction: s.compositionLeadFraction, verticalOffsetFraction: s.verticalCompositionOffset)
-            crop = CropMath.clampedCrop(center: composed, size: size, source: source)
-        } else {
-            // Idle/lost → centered default crop (plan §10 Crop State Machine).
-            let size = Self.outputSizeTC(for: s.aspectRatio)
-            crop = CropMath.clampedCrop(center: source.center, size: size, source: source)
         }
+
+        // Plan the desired crop per tracking state (incl. lost ladder), then rate-limit it (plan §10).
+        let planned = cropPlanner.plan(
+            state: result.state, secondsSinceLost: secondsSinceLost,
+            lastCenter: lastKnownCenter ?? source.center, velocity: lastVelocity,
+            trackingDesiredCenter: trackCenter, trackingDesiredSize: trackSize,
+            defaultSize: Self.outputSizeTC(for: s.aspectRatio), source: source)
+
+        let dt = lastFrameSeconds.map { max(1.0 / 240, t - $0) } ?? 1.0 / 60
+        lastFrameSeconds = t
+        let crop = cropController.update(dt: dt, desiredCenter: planned.center,
+                                         desiredSize: planned.size, source: source)
 
         // GPU reframe → preview + record.
         guard let rendered = reframe?.render(pixelBuffer: payload.pixelBuffer,
@@ -200,11 +231,14 @@ final class CameraViewModel {
 
         // Publish to UI on the main actor.
         let subjectInCrop = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
+        let cropFraction = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
+                                  width: crop.width / source.width, height: crop.height / source.height)
         await MainActor.run {
             self.trackingState = result.state
             self.latestPreviewTexture = rendered.texture
             self.subjectViewRect = subjectInCrop
             self.guidanceHint = hint
+            self.cropInSourceRect = cropFraction
             if self.isRecording, self.recordStartPTS.isValid {
                 self.elapsed = ctx.presentationTime.seconds - self.recordStartPTS.seconds
             }

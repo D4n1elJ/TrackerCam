@@ -21,6 +21,9 @@ struct MetalPreviewView: UIViewRepresentable {
 
     func updateUIView(_ uiView: MTKView, context: Context) {}
 
+    // MTKViewDelegate methods are NS_SWIFT_UI_ACTOR (@MainActor) in the SDK, so the coordinator
+    // is @MainActor and its methods satisfy the requirements directly.
+    @MainActor
     final class Coordinator: NSObject, MTKViewDelegate {
         private let viewModel: CameraViewModel
         private var queue: MTLCommandQueue?
@@ -28,7 +31,6 @@ struct MetalPreviewView: UIViewRepresentable {
 
         init(viewModel: CameraViewModel) { self.viewModel = viewModel }
 
-        @MainActor
         func configure(device: MTLDevice?) {
             guard let device, let library = device.makeDefaultLibrary() else { return }
             queue = device.makeCommandQueue()
@@ -39,24 +41,21 @@ struct MetalPreviewView: UIViewRepresentable {
             pipeline = try? device.makeRenderPipelineState(descriptor: desc)
         }
 
-        nonisolated func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
-        nonisolated func draw(in view: MTKView) {
-            // MetalKit invokes the delegate on the main thread.
-            MainActor.assumeIsolated {
-                guard let texture = viewModel.latestPreviewTexture,
-                      let pipeline,
-                      let drawable = view.currentDrawable,
-                      let rpd = view.currentRenderPassDescriptor,
-                      let cmd = queue?.makeCommandBuffer(),
-                      let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) else { return }
-                enc.setRenderPipelineState(pipeline)
-                enc.setFragmentTexture(texture, index: 0)
-                enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
-                enc.endEncoding()
-                cmd.present(drawable)
-                cmd.commit()
-            }
+        func draw(in view: MTKView) {
+            guard let texture = viewModel.latestPreviewTexture,
+                  let pipeline,
+                  let drawable = view.currentDrawable,
+                  let rpd = view.currentRenderPassDescriptor,
+                  let cmd = queue?.makeCommandBuffer(),
+                  let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) else { return }
+            enc.setRenderPipelineState(pipeline)
+            enc.setFragmentTexture(texture, index: 0)
+            enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+            enc.endEncoding()
+            cmd.present(drawable)
+            cmd.commit()
         }
     }
 }

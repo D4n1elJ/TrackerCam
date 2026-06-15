@@ -4,6 +4,9 @@ import CoreVideo
 
 /// AVAssetWriter pipeline for the cropped HEVC output (plan §14 Recording & Export).
 /// Writes to a unique temp URL; the caller moves it to its final location after finalization.
+/// `@MainActor`: all of start/append/finish are driven from the main-actor frame loop in
+/// CameraViewModel, so isolating here avoids sending this non-Sendable type across actors.
+@MainActor
 final class RecordingService {
     enum State { case idle, recording, finishing }
 

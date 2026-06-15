@@ -18,8 +18,8 @@
 		5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1075BAAE23507C186CDEE12E /* DetectionService.swift */; };
 		6C8229D2FC823CCBDC11CBA9 /* TrackerCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */; };
 		897E14C4BDCBC09860AABE0D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E5615BCE79D74FD8C4564D /* SettingsView.swift */; };
+		94BA686DC16052BD0FBA4AEB /* MiniMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DE65B51EF3F9197875C4794 /* MiniMapView.swift */; };
 		9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = CA73B230E3F8BD0135FE6ABF /* CropShader.metal */; };
-		AB50483E8288271B2EA74DA0 /* GuidanceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA0B4E7DFBB8A66A842B846A /* GuidanceEngine.swift */; };
 		B02EF94B3E57052E70788B51 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D906B993FB652152809EFA1C /* Assets.xcassets */; };
 		B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880FA74AA118DDADEE66C407 /* ReframePipeline.swift */; };
 		CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */; };
@@ -36,6 +36,7 @@
 		3C0E2491471954DE635B579E /* MetalPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalPreviewView.swift; sourceTree = "<group>"; };
 		548AEEEF5623022528D3B9BC /* ThermalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalManager.swift; sourceTree = "<group>"; };
 		5A2B84CA3E410DA99E7D30EA /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		6DE65B51EF3F9197875C4794 /* MiniMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMapView.swift; sourceTree = "<group>"; };
 		741ACBFDF07738B5B2F1C5F7 /* Geometry+CoreGraphics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Geometry+CoreGraphics.swift"; sourceTree = "<group>"; };
 		84E5615BCE79D74FD8C4564D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		880FA74AA118DDADEE66C407 /* ReframePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReframePipeline.swift; sourceTree = "<group>"; };
@@ -49,7 +50,6 @@
 		D906B993FB652152809EFA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
-		EA0B4E7DFBB8A66A842B846A /* GuidanceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidanceEngine.swift; sourceTree = "<group>"; };
 		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -84,6 +84,7 @@
 		2897CB0DC97F2866BD4EB936 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				6DE65B51EF3F9197875C4794 /* MiniMapView.swift */,
 				A74883230443D7FDBA4794DC /* OverlayView.swift */,
 			);
 			path = Components;
@@ -131,7 +132,6 @@
 			isa = PBXGroup;
 			children = (
 				407C07102F8D3CCFD9E63D88 /* Camera */,
-				C3F0B88A806AD25D355D1C57 /* Guidance */,
 				29C5A0ECAEA8F1424F52EE3C /* Recording */,
 				91AC3C9B2EAADA9F18D7F476 /* Reframe */,
 				6CE5B2AF56B9CF148AB7E9CE /* Settings */,
@@ -181,14 +181,6 @@
 				D906B993FB652152809EFA1C /* Assets.xcassets */,
 			);
 			path = Resources;
-			sourceTree = "<group>";
-		};
-		C3F0B88A806AD25D355D1C57 /* Guidance */ = {
-			isa = PBXGroup;
-			children = (
-				EA0B4E7DFBB8A66A842B846A /* GuidanceEngine.swift */,
-			);
-			path = Guidance;
 			sourceTree = "<group>";
 		};
 		CA83E3B964B41C05058AE8F2 /* TrackerCam */ = {
@@ -300,8 +292,8 @@
 				5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */,
 				CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */,
 				4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */,
-				AB50483E8288271B2EA74DA0 /* GuidanceEngine.swift in Sources */,
 				F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */,
+				94BA686DC16052BD0FBA4AEB /* MiniMapView.swift in Sources */,
 				147948DE666FFC70EA2A65A0 /* OverlayView.swift in Sources */,
 				CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */,
 				B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */,

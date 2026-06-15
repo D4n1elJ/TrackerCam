@@ -1,31 +1,32 @@
-import CoreGraphics
-import TrackerCamCore
-
 /// Computes operator pan/aim hints from framing error, predicted drift, and crop headroom.
 /// Plan §11 Framing Guidance System. This is camera-aiming guidance, never navigation advice.
-struct GuidanceEngine {
-    enum Severity { case none, normal, amber, red }
+/// Framework-free / pure so it can be unit-tested without the app.
+public struct GuidanceEngine: Sendable {
+    public enum Severity: Sendable { case none, normal, amber, red }
 
-    struct Hint {
-        /// Unit-ish direction in source space (x right, y down) the operator should pan toward.
-        var direction: TCPoint
+    public struct Hint: Sendable {
+        /// Unit direction in source space (x right, y down) the operator should pan toward.
+        public var direction: TCPoint
         /// Magnitude relative to frame size (0 = centered).
-        var magnitude: Double
-        var severity: Severity
+        public var magnitude: Double
+        public var severity: Severity
+        public init(direction: TCPoint, magnitude: Double, severity: Severity) {
+            self.direction = direction; self.magnitude = magnitude; self.severity = severity
+        }
     }
 
-    var deadZoneFraction: Double      // settings.guidanceDeadZone
-    var lookaheadSeconds: Double      // settings.guidanceLookahead
+    public var deadZoneFraction: Double   // settings.guidanceDeadZone
+    public var lookaheadSeconds: Double   // settings.guidanceLookahead
 
-    /// - Parameters:
-    ///   - subjectCenter: subject center in source pixels.
-    ///   - predictedVelocity: source px/s.
-    ///   - source: full source rect.
-    ///   - crop: current crop rect (for headroom-based escalation).
-    func hint(subjectCenter: TCPoint,
-              predictedVelocity: TCPoint,
-              source: TCRect,
-              crop: TCRect) -> Hint {
+    public init(deadZoneFraction: Double, lookaheadSeconds: Double) {
+        self.deadZoneFraction = deadZoneFraction
+        self.lookaheadSeconds = lookaheadSeconds
+    }
+
+    public func hint(subjectCenter: TCPoint,
+                     predictedVelocity: TCPoint,
+                     source: TCRect,
+                     crop: TCRect) -> Hint {
         let frameCenter = source.center
         let errorX = subjectCenter.x - frameCenter.x + predictedVelocity.x * lookaheadSeconds
         let errorY = subjectCenter.y - frameCenter.y + predictedVelocity.y * lookaheadSeconds
@@ -41,7 +42,7 @@ struct GuidanceEngine {
         let headroom = CropMath.headroom(crop: crop, source: source)
         let minHeadroom = min(headroom.left, headroom.right, headroom.top, headroom.bottom)
         let severity: Severity
-        if minHeadroom < 0.08 { severity = .red }       // plan §10 edge thresholds
+        if minHeadroom < 0.08 { severity = .red }          // plan §10 edge thresholds
         else if minHeadroom < 0.20 { severity = .amber }
         else { severity = .normal }
 
