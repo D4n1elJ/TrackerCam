@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>TrackerCam</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+
+    <!-- Permissions (plan §5). -->
+    <key>NSCameraUsageDescription</key>
+    <string>TrackerCam uses the camera to record and automatically frame your subject.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>TrackerCam records audio together with your video.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>TrackerCam can save your recordings to your photo library.</string>
+
+    <!-- High-refresh ProMotion preview (plan §5). -->
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+
+    <!-- Background recording is explicitly unsupported (plan §5). No UIBackgroundModes. -->
+</dict>
+</plist>

@@ -1,0 +1,7 @@
+// Local CLI test entry point (swiftc). See TestSupport.swift for why this exists.
+runVisionGeometryTests()
+runKalmanTests()
+runCropMathTests()
+runTrackingStateMachineTests()
+runSettingsTests()
+finish()

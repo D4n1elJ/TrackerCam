@@ -1,0 +1,50 @@
+# XcodeGen project spec for TrackerCam. See PLAN.md §16.
+#
+# Generate the Xcode project on a machine with full Xcode + XcodeGen:
+#   brew install xcodegen
+#   cd <repo>/trackercam && xcodegen generate
+#   open TrackerCam.xcodeproj
+#
+# The app links the local, framework-free TrackerCamCore package (unit-tested via
+# TrackerCamCore/Scripts/verify.sh, or `swift test` in a healthy toolchain).
+
+name: TrackerCam
+options:
+  bundleIdPrefix: com.trackercam
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_LANGUAGE: en
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  TrackerCamCore:
+    path: TrackerCamCore
+
+targets:
+  TrackerCam:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: TrackerCam
+    dependencies:
+      - package: TrackerCamCore
+        product: TrackerCamCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.trackercam.app
+        INFOPLIST_FILE: TrackerCam/App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TrackerCam/App/TrackerCam.entitlements
+        TARGETED_DEVICE_FAMILY: "1" # iPhone only for v1
+        # Landscape-first capture (plan §4/§12); portrait secondary.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeRight UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
