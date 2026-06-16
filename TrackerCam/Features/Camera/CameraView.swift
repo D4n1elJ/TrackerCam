@@ -55,6 +55,13 @@ struct CameraView: View {
                         .padding(.top, 56).padding(.trailing, 12)
                 }
             }
+            .overlay(alignment: .leading) {
+                // Live dynamic-crop control: drag up to zoom in (tighter), down to widen.
+                if !viewModel.permissionDenied && viewModel.settingsStore.settings.dynamicZoomEnabled {
+                    ZoomSlider(value: zoomBinding, range: 0.12...0.55)
+                        .padding(.leading, 8)
+                }
+            }
         }
         .task(id: hasOnboarded) { if hasOnboarded { await viewModel.onAppear() } }
         .onDisappear { viewModel.onDisappear() }
@@ -128,6 +135,14 @@ struct CameraView: View {
         }
     }
 
+    /// Two-way binding into the persisted dynamic-crop tightness (subject height fraction).
+    private var zoomBinding: Binding<Double> {
+        Binding(
+            get: { viewModel.settingsStore.settings.targetSubjectHeight },
+            set: { viewModel.settingsStore.settings.targetSubjectHeight = $0 }
+        )
+    }
+
     private var miniMapAspect: CGFloat {
         let r = viewModel.settingsStore.settings.aspectRatio.ratio
         return r > 0 ? CGFloat(r) : 16.0 / 9.0
@@ -150,6 +165,28 @@ struct CameraView: View {
         case .locked, .tracking: return .green
         case .lost: return .red
         }
+    }
+}
+
+/// Vertical zoom slider for the live viewfinder. Bound to the dynamic-crop subject-height
+/// fraction: rotating the slider puts the max (tightest) value at the top, so dragging up zooms in.
+private struct ZoomSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "plus.magnifyingglass")
+            Slider(value: $value, in: range)
+                .frame(width: 160)
+                .rotationEffect(.degrees(-90))
+                .frame(width: 44, height: 160)
+            Image(systemName: "minus.magnifyingglass")
+        }
+        .font(.caption)
+        .foregroundStyle(.white)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: Capsule())
     }
 }
 

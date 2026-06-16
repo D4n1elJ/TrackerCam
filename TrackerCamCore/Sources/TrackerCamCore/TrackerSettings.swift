@@ -170,7 +170,7 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
         s.lostTrackTimeout = clamp(s.lostTrackTimeout, low: 0.1, high: 3.0)
         s.confidenceThreshold = clamp(s.confidenceThreshold, low: 0.0, high: 1.0)
         s.smoothingStrength = clamp(s.smoothingStrength, low: 0.0, high: 1.0)
-        s.targetSubjectHeight = clamp(s.targetSubjectHeight, low: 0.25, high: 0.55)
+        s.targetSubjectHeight = clamp(s.targetSubjectHeight, low: 0.12, high: 0.55)
         s.subjectPadding = clamp(s.subjectPadding, low: 0.10, high: 0.35)
         s.compositionLeadFraction = clamp(s.compositionLeadFraction, low: 0.0, high: 0.20)
         s.verticalCompositionOffset = clamp(s.verticalCompositionOffset, low: -0.15, high: 0.10)

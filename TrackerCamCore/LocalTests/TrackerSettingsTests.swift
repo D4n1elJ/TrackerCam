@@ -51,7 +51,7 @@ func runSettingsTests() {
     lo.confidenceThreshold = -0.5
     lo.verticalCompositionOffset = -0.40
     let lc = lo.clamped()
-    expectClose(lc.targetSubjectHeight, 0.25, tol: 1e-9, "clamp height lo")
+    expectClose(lc.targetSubjectHeight, 0.12, tol: 1e-9, "clamp height lo")
     expectClose(lc.guidanceDeadZone, 0.03, tol: 1e-9, "clamp dead zone lo")
     expectClose(lc.confidenceThreshold, 0.0, tol: 1e-9, "clamp confidence lo")
     expectClose(lc.verticalCompositionOffset, -0.15, tol: 1e-9, "clamp voffset lo")

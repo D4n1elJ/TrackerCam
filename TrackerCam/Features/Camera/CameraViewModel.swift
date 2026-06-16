@@ -338,8 +338,8 @@ final class CameraViewModel {
                                          desiredSize: planned.size, source: source)
 
         // GPU reframe → preview + record.
-        guard let rendered = reframe?.render(pixelBuffer: payload.pixelBuffer,
-                                             cropPixelRect: crop, sourceSize: sourceSize) else { return }
+        guard let rendered = await reframe?.render(pixelBuffer: payload.pixelBuffer,
+                                                   cropPixelRect: crop, sourceSize: sourceSize) else { return }
 
         if isRecording, !thermal.mustStopRecording {
             if recordStartPTS == .invalid { recordStartPTS = ctx.presentationTime }

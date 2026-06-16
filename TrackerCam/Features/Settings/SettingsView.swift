@@ -33,7 +33,7 @@ struct SettingsView: View {
                         Text("Full").tag(AspectRatioMode.fullFrame)
                     }
                     Toggle("Dynamic zoom", isOn: $store.settings.dynamicZoomEnabled)
-                    slider("Subject height", $store.settings.targetSubjectHeight, 0.25...0.55)
+                    slider("Subject height", $store.settings.targetSubjectHeight, 0.12...0.55)
                     slider("Padding", $store.settings.subjectPadding, 0.10...0.35)
                     slider("Lead", $store.settings.compositionLeadFraction, 0.0...0.20)
                     Toggle("Mini-map", isOn: $store.settings.showMiniMap)
