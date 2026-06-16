@@ -33,6 +33,9 @@ final class CameraViewModel {
 
     /// The latest reframed texture for the Metal preview (read by MetalPreviewView).
     private(set) var latestPreviewTexture: MTLTexture?
+    /// Set by MetalPreviewView to request a single redraw when a new frame is ready (the preview
+    /// draws on demand instead of a fixed 60fps, saving GPU/battery when capture is slower).
+    var requestPreviewRedraw: (@MainActor () -> Void)?
 
     let settingsStore: SettingsStore
 
@@ -42,6 +45,10 @@ final class CameraViewModel {
     private let detection: DetectionService
     private let recordingStore = RecordingStore()
     private var reframe: ReframePipeline?
+    /// Full-frame downscaler that produces the ~720p analysis buffer for Vision (plan §6).
+    private var analysisScaler: ReframePipeline?
+    private var analysisDims: CGSize = .zero
+    private var detectionInFlight = false
     private var recording: RecordingService?
     private let thermal = ThermalManager()
 
@@ -285,16 +292,51 @@ final class CameraViewModel {
         let redetect = (t - lastDetectAt) >= interval
         if redetect { lastDetectAt = t }
 
-        // Tracking (sequential; the actor + ordered stream keep frames in order).
-        let result = await trackingEngine.process(
-            payload: payload,
-            detector: detection.isModelLoaded ? detection : nil, redetect: redetect)
-
-        // Crop decision (plan §10).
+        // Crop / source geometry (plan §10).
         let sourceSize = TCSize(width: Double(ctx.sourceDimensions.width),
                                 height: Double(ctx.sourceDimensions.height))
         let source = TCRect(x: 0, y: 0, width: sourceSize.width, height: sourceSize.height)
         let aspect = s.aspectRatio.ratio == 0 ? sourceSize.aspectRatio : s.aspectRatio.ratio
+
+        // Analysis branch (plan §6): run Vision tracking + detection on a ~720p downscale instead of
+        // the full 4K frame. Only while a target is being tracked — idle frames need no analysis.
+        // Coordinates are normalized, so reduced resolution is transparent to the crop math.
+        var visionBuffer = payload.pixelBuffer
+        let active = trackingState != .idle
+        if active {
+            let srcDims = ctx.sourceDimensions
+            if analysisScaler == nil || analysisDims != srcDims {
+                analysisDims = srcDims
+                analysisScaler = ReframePipeline(outputSize: Self.analysisSize(for: srcDims), poolSize: 6)
+            }
+            if let a = await analysisScaler?.render(pixelBuffer: payload.pixelBuffer,
+                                                    cropPixelRect: source, sourceSize: sourceSize) {
+                visionBuffer = a.pixelBuffer
+            }
+        }
+        let visionPayload = FramePayload(pixelBuffer: visionBuffer, context: ctx)
+
+        // Detector cadence: run decoupled on the owned downscaled buffer so the inference spike never
+        // blocks per-frame tracking (latest-wins; at most one in flight, plan §6 backpressure).
+        if redetect, active, detection.isModelLoaded, !detectionInFlight {
+            detectionInFlight = true
+            let detector = detection
+            let dims = sourceSize
+            let thr = s.confidenceThreshold
+            Task { [weak self, detector, visionPayload] in
+                let det = try? detector.detectCompoundTarget(in: visionPayload.pixelBuffer,
+                                                             sourceSize: dims, confidenceThreshold: thr)
+                if let self {
+                    if let det {
+                        await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                    }
+                    await self.clearDetectionInFlight()
+                }
+            }
+        }
+
+        // Tracking (sequential; the actor + ordered stream keep frames in order).
+        let result = await trackingEngine.track(visionPayload: visionPayload, fast: thermal.useFastTracking)
 
         // Track last-known motion (used to predict during loss) and the lost-onset time.
         if let center = result.smoothedCenter {
@@ -369,6 +411,7 @@ final class CameraViewModel {
             }
             self.trackingState = result.state
             self.latestPreviewTexture = rendered.texture
+            self.requestPreviewRedraw?()   // draw this frame on demand
             self.subjectViewRect = subjectInCrop
             self.guidanceHint = hint
             self.cropInSourceRect = cropFraction
@@ -383,6 +426,20 @@ final class CameraViewModel {
     }
 
     // MARK: - Helpers
+
+    /// Clears the decoupled-detection in-flight flag (called back from the detection task).
+    private func clearDetectionInFlight() { detectionInFlight = false }
+
+    /// Analysis-buffer size: source aspect preserved, scaled so the long side is ~1280px. Keeping the
+    /// source aspect avoids anisotropic distortion of the tracked content.
+    private static func analysisSize(for source: CGSize) -> CGSize {
+        let longSide: CGFloat = 1280
+        guard source.width > 0, source.height > 0 else { return CGSize(width: longSide, height: 720) }
+        if source.width >= source.height {
+            return CGSize(width: longSide, height: max(2, (longSide * source.height / source.width).rounded()))
+        }
+        return CGSize(width: max(2, (longSide * source.width / source.height).rounded()), height: longSide)
+    }
 
     /// Map a source-pixel rect into the crop's normalized [0,1] space (preview coordinates).
     private static func rectInCrop(_ rect: TCRect, crop: TCRect) -> CGRect {

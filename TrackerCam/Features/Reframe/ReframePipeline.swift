@@ -27,7 +27,7 @@ final class ReframePipeline {
     private let pool: CVPixelBufferPool
     let outputSize: CGSize
 
-    init?(outputSize: CGSize) {
+    init?(outputSize: CGSize, poolSize: Int = 4) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
               let library = device.makeDefaultLibrary(),
@@ -40,7 +40,7 @@ final class ReframePipeline {
         self.pipelineState = state
         self.outputSize = outputSize
 
-        let poolAttrs = [kCVPixelBufferPoolMinimumBufferCountKey as String: 4]
+        let poolAttrs = [kCVPixelBufferPoolMinimumBufferCountKey as String: poolSize]
         let bufferAttrs: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey as String: Int(outputSize.width),

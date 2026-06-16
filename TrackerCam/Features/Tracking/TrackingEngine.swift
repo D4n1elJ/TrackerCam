@@ -25,7 +25,6 @@ actor TrackingEngine {
     private var stateMachine: TrackingStateMachine
     private var kalman: KalmanFilter2D
     private var settings: TrackerSettings
-    private var lastDetectionTime: CMTime = .invalid
     private var currentSeed: TCRect?
     private var lastObservationPTS: CMTime = .invalid
     private var lastSeconds: Double = 0   // most recent frame PTS in seconds, for seed timing
@@ -33,6 +32,7 @@ actor TrackingEngine {
     // Vision tracking handle (established API; see API-resolution note above).
     private var sequenceHandler = VNSequenceRequestHandler()
     private var trackingRequest: VNTrackObjectRequest?
+    private var trackingLevel: VNRequestTrackingLevel = .accurate
 
     init(settings: TrackerSettings) {
         self.settings = settings
@@ -71,44 +71,35 @@ actor TrackingEngine {
         )
     }
 
-    /// Process one analysis frame (downscaled pixel buffer is fine; coordinates are normalized).
-    /// `redetect` indicates the caller decided this is a detector cadence frame (plan §8).
-    func process(payload: FramePayload,
-                 detector: DetectionService?,
-                 redetect: Bool) async -> TrackingResult {
+    /// Frame-to-frame tracking on the (downscaled) analysis buffer. Coordinates are normalized, so a
+    /// reduced-resolution buffer tracks identically while costing far less CPU/ANE than the full 4K
+    /// frame. `fast` selects Vision's `.fast` tracking level under thermal pressure (plan §15).
+    /// Detection runs separately and feeds results via `applyDetection` (plan §6 analysis branch).
+    func track(visionPayload: FramePayload, fast: Bool) async -> TrackingResult {
         // FramePayload is @unchecked Sendable, so the non-Sendable buffer crosses into this actor
-        // under our single-owner contract. The detector runs synchronously (no boundary crossing).
-        let pixelBuffer = payload.pixelBuffer
-        let context = payload.context
+        // under our single-owner contract.
+        let pixelBuffer = visionPayload.pixelBuffer
+        let context = visionPayload.context
         let t = context.presentationTime
         lastSeconds = t.secondsOrZero
+        // Coordinate math uses the *true* source dimensions (from the context), not the analysis
+        // buffer's size, so normalized Vision results map back to full-resolution source pixels.
         let sourceSize = TCSize(width: Double(context.sourceDimensions.width),
                                 height: Double(context.sourceDimensions.height))
 
         var confidence = 0.0
         var subjectPixel: TCRect? = currentSeed
 
-        // 1) Detector cadence: (re)acquire / refresh the compound target.
-        if redetect, let detector {
-            if let detection = try? detector.detectCompoundTarget(in: pixelBuffer,
-                                                                  sourceSize: sourceSize,
-                                                                  confidenceThreshold: settings.confidenceThreshold) {
-                subjectPixel = detection.pixelRect
-                confidence = detection.confidence
-                currentSeed = detection.pixelRect
-                trackingRequest = nil   // refresh tracker seed
-                lastDetectionTime = t
-            }
-        }
-
-        // 2) Frame-to-frame tracking via Vision (established API).
+        // Frame-to-frame tracking via Vision (established API).
+        let desiredLevel: VNRequestTrackingLevel = fast ? .fast : .accurate
         if let seed = currentSeed {
-            if trackingRequest == nil {
+            if trackingRequest == nil || trackingLevel != desiredLevel {
                 let normalizedSeed = VisionGeometry.normalizedRect(fromPixel: seed, imageSize: sourceSize)
                 let req = VNTrackObjectRequest(detectedObjectObservation:
                     VNDetectedObjectObservation(boundingBox: normalizedSeed.cg))
-                req.trackingLevel = .accurate
+                req.trackingLevel = desiredLevel
                 trackingRequest = req
+                trackingLevel = desiredLevel
             }
             if let req = trackingRequest {
                 try? sequenceHandler.perform([req], on: pixelBuffer)
@@ -121,7 +112,7 @@ actor TrackingEngine {
             }
         }
 
-        // 3) Feed the state machine and smoother.
+        // Feed the state machine and smoother.
         stateMachine.observe(confidence: confidence, at: lastSeconds)
         if let s = subjectPixel {
             kalman.predictIfNeeded(to: lastSeconds, last: &lastObservationPTS)
@@ -137,6 +128,18 @@ actor TrackingEngine {
             presentationTime: t,
             sessionGeneration: context.sessionGeneration
         )
+    }
+
+    /// Apply a detection result (computed off the per-frame path on the downscaled buffer): refresh
+    /// the tracker seed and feed its confidence so lock/recovery transitions still progress. The next
+    /// `track(...)` re-seeds the Vision tracker from this box. Ignored while idle (no acquisition
+    /// requested), matching the tap/refocus-to-acquire model.
+    func applyDetection(pixelRect: TCRect, confidence: Double) {
+        currentSeed = pixelRect
+        trackingRequest = nil
+        if stateMachine.state != .idle {
+            stateMachine.observe(confidence: confidence, at: lastSeconds)
+        }
     }
 
     private static func processNoise(for smoothingStrength: Double) -> Double {

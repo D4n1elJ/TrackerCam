@@ -18,6 +18,9 @@ final class DetectionService: @unchecked Sendable {
     }
 
     private let visionModel: VNCoreMLModel?
+    /// Reused across detections (configured once). Detection is coalesced to a single in-flight
+    /// call by the caller, so reuse is safe and avoids a per-cadence request allocation.
+    private let request: VNCoreMLRequest?
 
     init() {
         // Lazily load the bundled model; nil until the .mlpackage is added (Phase 3).
@@ -25,8 +28,12 @@ final class DetectionService: @unchecked Sendable {
            let model = try? MLModel(contentsOf: url),
            let vn = try? VNCoreMLModel(for: model) {
             visionModel = vn
+            let req = VNCoreMLRequest(model: vn)
+            req.imageCropAndScaleOption = .scaleFill
+            request = req
         } else {
             visionModel = nil
+            request = nil
         }
     }
 
@@ -36,10 +43,8 @@ final class DetectionService: @unchecked Sendable {
     func detectCompoundTarget(in pixelBuffer: CVPixelBuffer,
                               sourceSize: TCSize,
                               confidenceThreshold: Double) throws -> Detection? {
-        guard let visionModel else { return nil }
+        guard let request else { return nil }
 
-        let request = VNCoreMLRequest(model: visionModel)
-        request.imageCropAndScaleOption = .scaleFill
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
         try handler.perform([request])
 

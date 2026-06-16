@@ -9,6 +9,7 @@ struct CameraView: View {
     @AppStorage("trackercam.hasOnboarded") private var hasOnboarded = false
     @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
     @AppStorage("trackercam.showGrid") private var showGrid = false
+    @AppStorage("trackercam.previewAspectFill") private var previewAspectFill = true
 
     var body: some View {
         GeometryReader { geo in
@@ -16,7 +17,7 @@ struct CameraView: View {
                 if viewModel.permissionDenied {
                     PermissionDeniedView()
                 } else {
-                    MetalPreviewView(viewModel: viewModel)
+                    MetalPreviewView(viewModel: viewModel, aspectFill: previewAspectFill)
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { viewModel.clearTarget() }   // double-tap = release target
