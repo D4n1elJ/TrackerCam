@@ -170,9 +170,10 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         // Without this the back camera's native-landscape buffer appears rotated.
         let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
         self.rotationCoordinator = coordinator
-        let angle = coordinator.videoRotationAngleForHorizonLevelCapture
-        if conn.isVideoRotationAngleSupported(angle) {
-            conn.videoRotationAngle = angle
+        applyRotation(coordinator.videoRotationAngleForHorizonLevelCapture)
+        // Keep the buffer orientation correct as the phone is physically rotated.
+        rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.new]) { [weak self] coord, _ in
+            self?.applyRotation(coord.videoRotationAngleForHorizonLevelCapture)
         }
 
         // Track device rotation live so the viewfinder re-levels as the phone turns (full UI
@@ -199,6 +200,22 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             colorSpace: device.activeColorSpace,
             isHDR: device.isVideoHDREnabled
         )
+    }
+
+    private var rotationLocked = false
+
+    /// Lock the capture rotation while recording so a mid-clip device rotation can't flip the
+    /// output (plan §9: lock output orientation when recording starts).
+    func setRotationLocked(_ locked: Bool) {
+        sessionQueue.async { self.rotationLocked = locked }
+    }
+
+    private func applyRotation(_ angle: CGFloat) {
+        sessionQueue.async {
+            guard !self.rotationLocked,
+                  let conn = self.connection, conn.isVideoRotationAngleSupported(angle) else { return }
+            conn.videoRotationAngle = angle
+        }
     }
 
     func startRunning() {

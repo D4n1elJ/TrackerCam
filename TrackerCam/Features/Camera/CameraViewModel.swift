@@ -2,6 +2,8 @@ import SwiftUI
 import UIKit
 import Observation
 import AVFoundation
+import QuartzCore
+import os
 import CoreMedia
 import Metal
 import TrackerCamCore
@@ -37,6 +39,7 @@ final class CameraViewModel {
     /// draws on demand instead of a fixed 60fps, saving GPU/battery when capture is slower).
     var requestPreviewRedraw: (@MainActor () -> Void)?
 
+
     let settingsStore: SettingsStore
 
     private let router: FrameRouter
@@ -67,8 +70,18 @@ final class CameraViewModel {
     private var lastDetectAt: Double = -.greatestFiniteMagnitude
     private var lastFrameSeconds: Double?
     private var smoothedFPS: Double = 0
+    private var lastUIPublishT: Double = 0
+    private var lastHapticState: TrackingState = .idle
+    // Live perf debugging: os_signpost (Instruments) + 1 Hz fps log (Console/Xcode).
+    private let perfLog = Logger(subsystem: "com.trackercam.app", category: "perf")
+    private let signposter = OSSignposter(subsystem: "com.trackercam.app", category: "frame")
+    private var lastPerfLogT: Double = 0
+    private var trackMsEMA: Double = 0
+    private var reframeMsEMA: Double = 0
     private var cropController = CropController()
     private let cropPlanner = CropPlanner()
+    private var cropLog = CropMetadataLog()
+    private var cropLogActive = false
     private let interruptionPolicy = InterruptionPolicy()
     private var pendingContinuation = false
     private var userRequestedStop = false
@@ -104,7 +117,8 @@ final class CameraViewModel {
 
         // Wire the ordered frame stream. Capture the (Sendable) continuation directly so the
         // off-main-actor capture callback never touches main-actor state (Swift 6).
-        let stream = AsyncStream<FramePayload> { continuation in
+        // Strict latest-wins (buffer 1): minimize preview latency — never queue stale frames.
+        let stream = AsyncStream<FramePayload>(bufferingPolicy: .bufferingNewest(1)) { continuation in
             self.streamContinuation = continuation
         }
         let continuation = streamContinuation
@@ -221,6 +235,9 @@ final class CameraViewModel {
             recordStartPTS = .invalid
             lowSpaceSince = nil
             storageCountdown = nil
+            camera.setRotationLocked(true)   // lock orientation for the clip (plan §9)
+            cropLog = CropMetadataLog()
+            cropLogActive = settingsStore.settings.exportCropMetadata   // sidecar opt-in (§14)
         } catch {
             effectiveConfigSummary = "Recorder failed: \(error)"
         }
@@ -259,6 +276,7 @@ final class CameraViewModel {
 
     private func stopRecording(continuation: Bool = false) async {
         guard let recording else { return }
+        camera.setRotationLocked(false)   // allow rotation again after the clip
         let (url, dropped) = await recording.finish()
         isRecording = false
         elapsed = 0
@@ -278,6 +296,13 @@ final class CameraViewModel {
         case (false, true): effectiveConfigSummary = "Saved to Photos (\(dropped) dropped)"
         case (false, false): effectiveConfigSummary = "Save failed"
         }
+
+        // Write the crop-metadata sidecar next to the recording (§14). TODO: stream for long clips.
+        if cropLogActive, let appURL = result.appURL {
+            let sidecar = appURL.deletingPathExtension().appendingPathExtension("ndjson")
+            try? cropLog.ndjson().write(to: sidecar, atomically: true, encoding: .utf8)
+        }
+        cropLogActive = false
     }
 
     // MARK: - Per-frame processing (runs in the consumer task)
@@ -293,6 +318,7 @@ final class CameraViewModel {
         if redetect { lastDetectAt = t }
 
         // Crop / source geometry (plan §10).
+
         let sourceSize = TCSize(width: Double(ctx.sourceDimensions.width),
                                 height: Double(ctx.sourceDimensions.height))
         let source = TCRect(x: 0, y: 0, width: sourceSize.width, height: sourceSize.height)
@@ -383,9 +409,17 @@ final class CameraViewModel {
         guard let rendered = await reframe?.render(pixelBuffer: payload.pixelBuffer,
                                                    cropPixelRect: crop, sourceSize: sourceSize) else { return }
 
+
         if isRecording, !thermal.mustStopRecording {
             if recordStartPTS == .invalid { recordStartPTS = ctx.presentationTime }
             recording?.append(pixelBuffer: rendered.pixelBuffer, presentationTime: ctx.presentationTime)
+            if cropLogActive {
+                let pts = ctx.presentationTime
+                cropLog.append(CropFrameRecord(
+                    sequence: Int(ctx.sequenceNumber), ptsValue: pts.value, ptsTimescale: pts.timescale,
+                    crop: crop, subject: result.subjectPixelRect, confidence: result.confidence,
+                    state: result.state.rawValue, predicted: false))
+            }
             await monitorStorage(now: t)
         } else if isRecording, thermal.mustStopRecording {
             await stopRecording()   // critical thermal → stop & finalize (plan §15 / D19)
@@ -417,10 +451,11 @@ final class CameraViewModel {
             self.cropInSourceRect = cropFraction
             self.confidence = result.confidence
             self.fps = self.smoothedFPS
+
             let level = UIDevice.current.batteryLevel
-            self.batteryLow = level >= 0 && level < 0.2
-            if self.isRecording, self.recordStartPTS.isValid {
-                self.elapsed = ctx.presentationTime.seconds - self.recordStartPTS.seconds
+            batteryLow = level >= 0 && level < 0.2
+            if isRecording, recordStartPTS.isValid {
+                elapsed = ctx.presentationTime.seconds - recordStartPTS.seconds
             }
         }
     }

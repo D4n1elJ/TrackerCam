@@ -41,10 +41,9 @@ final class FrameRouter: @unchecked Sendable {
         self.processingQueue = processingQueue
     }
 
-    /// Entry point from the capture callback. Keep the capture queue's work minimal (plan §6).
+    /// Entry point from the capture callback. `onFrame` just yields into the (bounded) AsyncStream —
+    /// cheap enough to do inline on the capture queue, avoiding an extra hop + its latency.
     func route(_ payload: FramePayload) {
-        processingQueue.async { [weak self] in
-            self?.onFrame?(payload)
-        }
+        onFrame?(payload)
     }
 }

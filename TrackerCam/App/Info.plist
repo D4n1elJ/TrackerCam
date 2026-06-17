@@ -51,6 +51,7 @@
         <true/>
     </dict>
 
+
     <!-- Background recording is explicitly unsupported (plan §5). No UIBackgroundModes. -->
 </dict>
 </plist>

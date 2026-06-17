@@ -53,7 +53,8 @@ struct BlitVertexOut {
 vertex BlitVertexOut blitVertex(uint vid [[vertex_id]],
                                 constant float2& scale [[buffer(0)]]) {
     float2 pos[4] = { float2(-1.0, 1.0), float2(-1.0, -1.0), float2(1.0, 1.0), float2(1.0, -1.0) };
-    float2 uv[4]  = { float2(0.0, 1.0),  float2(0.0, 0.0),   float2(1.0, 1.0),  float2(1.0, 0.0) };
+    // Natural (no V-flip): rotation is handled at capture, texel (0,0) is the image top-left.
+    float2 uv[4]  = { float2(0.0, 0.0),  float2(0.0, 1.0),   float2(1.0, 0.0),  float2(1.0, 1.0) };
     BlitVertexOut out;
     out.position = float4(pos[vid] * scale, 0.0, 1.0);
     out.uv = uv[vid];

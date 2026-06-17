@@ -110,10 +110,12 @@ struct CameraView: View {
                         Image(systemName: "gearshape.fill").font(.title2)
                     }
                     .frame(width: 52, height: 52)
+                    .accessibilityLabel("Settings")
                     Button { showRecordings = true } label: {
                         Image(systemName: "film.stack").font(.title2)
                     }
                     .frame(width: 52, height: 52)
+                    .accessibilityLabel("Recordings")
                 }
                 .foregroundStyle(.white)
 
@@ -126,10 +128,14 @@ struct CameraView: View {
                     .frame(width: 52, height: 52)
                     .background(.ultraThinMaterial, in: Circle())
                     .foregroundStyle(.white)
+                    .accessibilityLabel("Refocus tracking")
+                    .accessibilityHint("Re-acquire the subject")
 
                     RecordButton(isRecording: viewModel.isRecording, elapsed: viewModel.elapsed) {
                         viewModel.toggleRecording()
                     }
+                    .accessibilityLabel(viewModel.isRecording ? "Stop recording" : "Start recording")
+                    .accessibilityAddTraits(.isButton)
                 }
             }
             .padding(24)

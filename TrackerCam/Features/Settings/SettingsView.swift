@@ -72,6 +72,7 @@ struct SettingsView: View {
                         Text("Both").tag(SaveDestination.both)
                     }
                     Toggle("Overlay in recording", isOn: $store.settings.overlayInRecording)
+                    Toggle("Export crop metadata (.ndjson)", isOn: $store.settings.exportCropMetadata)
                 }
 
                 Section("Advanced") {

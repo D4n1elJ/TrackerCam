@@ -19,10 +19,17 @@ struct MetalPreviewView: UIViewRepresentable {
         // idles when no new frame is ready — saves power, especially below 60fps capture.
         view.isPaused = true
         view.enableSetNeedsDisplay = true
+
         view.isOpaque = true
-        view.clearColor = MTLClearColorMake(0, 0, 0, 1)  // letterbox bars
+        view.clearColor = MTLClearColorMake(0, 0, 0, 1)
+        // Push model: don't free-run. Draw exactly once per fresh reframed frame → low latency AND
+        // no judder from two unsynced 60 Hz loops.
+        view.isPaused = true
+        view.enableSetNeedsDisplay = true
+        (view.layer as? CAMetalLayer)?.maximumDrawableCount = 2
         context.coordinator.configure(device: view.device)
         viewModel.requestPreviewRedraw = { [weak view] in view?.setNeedsDisplay() }
+
         return view
     }
 

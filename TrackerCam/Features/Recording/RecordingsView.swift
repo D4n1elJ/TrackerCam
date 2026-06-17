@@ -40,7 +40,7 @@ struct RecordingsView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .sheet(item: $playing) { url in
-                VideoPlayer(player: AVPlayer(url: url)).ignoresSafeArea()
+                ReplayView(url: url)   // overlays the tracking box when a sidecar exists
             }
         }
         .onAppear { urls = store.recordings() }

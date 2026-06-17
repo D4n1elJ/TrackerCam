@@ -98,6 +98,7 @@ actor TrackingEngine {
                 let req = VNTrackObjectRequest(detectedObjectObservation:
                     VNDetectedObjectObservation(boundingBox: normalizedSeed.cg))
                 req.trackingLevel = desiredLevel
+
                 trackingRequest = req
                 trackingLevel = desiredLevel
             }

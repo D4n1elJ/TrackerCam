@@ -12,10 +12,12 @@ import TrackerCamCore
 /// GPU run asynchronously (see `render`).
 @MainActor
 final class ReframePipeline {
+
     struct CropParams { var cropOrigin: SIMD2<Float>; var cropSize: SIMD2<Float> }
 
     /// One reframed frame, available simultaneously as a texture and a pixel buffer.
-    struct RenderedFrame {
+    /// @unchecked Sendable: handed from the GPU queue back to the caller under single-owner use.
+    struct RenderedFrame: @unchecked Sendable {
         let texture: MTLTexture
         let pixelBuffer: CVPixelBuffer
     }
@@ -26,6 +28,8 @@ final class ReframePipeline {
     private var textureCache: CVMetalTextureCache!
     private let pool: CVPixelBufferPool
     let outputSize: CGSize
+    // Dedicated GPU queue so reframe never runs on the main thread (perf).
+    private let gpuQueue = DispatchQueue(label: "com.trackercam.gpu", qos: .userInitiated)
 
     init?(outputSize: CGSize, poolSize: Int = 4) {
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -66,18 +70,18 @@ final class ReframePipeline {
         guard let luma = makeTexture(pixelBuffer, plane: 0, format: .r8Unorm),
               let chroma = makeTexture(pixelBuffer, plane: 1, format: .rg8Unorm) else { return nil }
 
-        var outBuffer: CVPixelBuffer?
-        guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &outBuffer) == kCVReturnSuccess,
-              let outBuffer,
-              let outTex = makeOutputTexture(outBuffer),
-              let cmd = queue.makeCommandBuffer(),
-              let enc = cmd.makeComputeCommandEncoder() else { return nil }
 
-        var params = CropParams(
-            cropOrigin: SIMD2(Float(cropPixelRect.minX / sourceSize.width),
-                              Float(cropPixelRect.minY / sourceSize.height)),
-            cropSize: SIMD2(Float(cropPixelRect.width / sourceSize.width),
-                            Float(cropPixelRect.height / sourceSize.height)))
+                var params = CropParams(
+                    cropOrigin: SIMD2(Float(cropPixelRect.minX / sourceSize.width),
+                                      Float(cropPixelRect.minY / sourceSize.height)),
+                    cropSize: SIMD2(Float(cropPixelRect.width / sourceSize.width),
+                                    Float(cropPixelRect.height / sourceSize.height)))
+
+                enc.setComputePipelineState(self.pipelineState)
+                enc.setTexture(luma, index: 0)
+                enc.setTexture(chroma, index: 1)
+                enc.setTexture(outTex, index: 2)
+                enc.setBytes(&params, length: MemoryLayout<CropParams>.stride, index: 0)
 
         enc.setComputePipelineState(pipelineState)
         enc.setTexture(luma, index: 0)
@@ -100,6 +104,7 @@ final class ReframePipeline {
         }
 
         return RenderedFrame(texture: outTex, pixelBuffer: outBuffer)
+
     }
 
     private func makeTexture(_ pixelBuffer: CVPixelBuffer, plane: Int, format: MTLPixelFormat) -> MTLTexture? {
