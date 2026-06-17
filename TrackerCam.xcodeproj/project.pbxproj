@@ -29,6 +29,7 @@
 		9D5396E5C6B1CBF1D0A4ABAF /* GridOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 811D7C6117E9354DB2784D6F /* GridOverlayView.swift */; };
 		B02EF94B3E57052E70788B51 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D906B993FB652152809EFA1C /* Assets.xcassets */; };
 		B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880FA74AA118DDADEE66C407 /* ReframePipeline.swift */; };
+		B7897AEACBA1022716F251AF /* DebugVideoSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23BBE4FC7115FA425CDCD3CF /* DebugVideoSource.swift */; };
 		B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */; };
 		C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */; };
 		CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */; };
@@ -54,6 +55,7 @@
 /* Begin PBXFileReference section */
 		1075BAAE23507C186CDEE12E /* DetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionService.swift; sourceTree = "<group>"; };
 		1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
+		23BBE4FC7115FA425CDCD3CF /* DebugVideoSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugVideoSource.swift; sourceTree = "<group>"; };
 		29D0F800A5F905D175907D96 /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
 		3243DE2C1554F5DDB9D37A2D /* TrackerCamCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TrackerCamCore; path = TrackerCamCore; sourceTree = SOURCE_ROOT; };
 		3C0E2491471954DE635B579E /* MetalPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalPreviewView.swift; sourceTree = "<group>"; };
@@ -224,6 +226,7 @@
 			isa = PBXGroup;
 			children = (
 				91CACA31FEC3972D2FF88E5E /* CameraService.swift */,
+				23BBE4FC7115FA425CDCD3CF /* DebugVideoSource.swift */,
 				A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */,
 				529D904A2A6B6D4651E4652F /* SimulatorVideoFeeder.swift */,
 				548AEEEF5623022528D3B9BC /* ThermalManager.swift */,
@@ -395,6 +398,7 @@
 				B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */,
 				9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */,
 				C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */,
+				B7897AEACBA1022716F251AF /* DebugVideoSource.swift in Sources */,
 				5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */,
 				CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */,
 				4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */,

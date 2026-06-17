@@ -22,11 +22,12 @@ final class DetectionService: @unchecked Sendable {
     /// call by the caller, so reuse is safe and avoids a per-cadence request allocation.
     private let request: VNCoreMLRequest?
 
-    /// Model-free subject acquisition (no trained model required). Apple's attention-based saliency
-    /// finds the dominant subject ("the thing that stands out" — the moving horse against the arena),
-    /// and human-rectangle detection finds the rider to form the compound target. Both are built into
+    /// Model-free subject acquisition (no trained model required). Objectness-based saliency returns
+    /// bounding boxes for distinct foreground objects (the horse stands out against the arena), and
+    /// human-rectangle detection finds the rider to form the compound target. Both are built into
     /// Vision, so the app can auto-acquire with pure math — no Core ML model needed.
-    private let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
+    /// (Objectness, not attention: attention returns a gaze heatmap with often-empty `salientObjects`.)
+    private let saliencyRequest = VNGenerateObjectnessBasedSaliencyImageRequest()
     private let humanRequest = VNDetectHumanRectanglesRequest()
 
     static var isBundledModelAvailable: Bool {

@@ -171,6 +171,10 @@ actor TrackingEngine {
     /// `track(...)` re-seeds the Vision tracker from this box. Ignored while idle (no acquisition
     /// requested), matching the tap/refocus-to-acquire model.
     func applyDetection(pixelRect: TCRect, confidence: Double) {
+        if let seed = currentSeed,
+           !Self.acceptsDetectionCorrection(pixelRect, current: seed) {
+            return
+        }
         currentSeed = pixelRect
         trackingRequest = nil
         manualSeedTrustFrames = 0
@@ -213,6 +217,20 @@ actor TrackingEngine {
             return rect.iou(previous.expanded(byFraction: 1.5)) > 0
         }
         return true
+    }
+
+    private static func acceptsDetectionCorrection(_ rect: TCRect, current: TCRect) -> Bool {
+        guard rect.isFiniteAndPositive else { return false }
+
+        let currentSearch = current.expanded(byFraction: 2.5)
+        if rect.iou(currentSearch) > 0 { return true }
+
+        let dx = rect.center.x - current.center.x
+        let dy = rect.center.y - current.center.y
+        let centerDistance = hypot(dx, dy)
+        let currentDiagonal = hypot(current.width, current.height)
+        let rectDiagonal = hypot(rect.width, rect.height)
+        return centerDistance <= max(currentDiagonal * 1.75, rectDiagonal * 0.55)
     }
 }
 
