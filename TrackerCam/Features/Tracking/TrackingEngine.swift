@@ -37,6 +37,7 @@ actor TrackingEngine {
     private var trackingLevel: VNRequestTrackingLevel = .accurate
     private var visionFailureCount = 0
     private var lastVisionErrorDescription: String?
+    private var manualSeedTrustFrames = 0
 
     init(settings: TrackerSettings) {
         self.settings = settings
@@ -56,6 +57,7 @@ actor TrackingEngine {
     func clearTarget() {
         currentSeed = nil
         trackingRequest = nil
+        manualSeedTrustFrames = 0
         visionFailureCount = 0
         lastVisionErrorDescription = nil
         stateMachine.reset()
@@ -70,6 +72,7 @@ actor TrackingEngine {
     func seed(pixelRect: TCRect) {
         currentSeed = pixelRect
         trackingRequest = nil          // re-seed Vision tracker on next frame
+        manualSeedTrustFrames = 12     // user taps are intentional; let Vision establish its track.
         stateMachine.startAcquisition(at: lastSeconds)
         kalman = KalmanFilter2D(
             processNoise: Self.processNoise(for: settings.smoothingStrength),
@@ -116,6 +119,10 @@ actor TrackingEngine {
                         let pixel = VisionGeometry.pixelRect(fromNormalized: TCRect(obs.boundingBox), imageSize: sourceSize)
                         subjectPixel = pixel
                         confidence = max(confidence, Double(obs.confidence))
+                        if manualSeedTrustFrames > 0 {
+                            confidence = max(confidence, settings.confidenceThreshold + 0.1)
+                            manualSeedTrustFrames -= 1
+                        }
                         currentSeed = pixel
                         lastVisionErrorDescription = nil
                     }
@@ -155,6 +162,7 @@ actor TrackingEngine {
     func applyDetection(pixelRect: TCRect, confidence: Double) {
         currentSeed = pixelRect
         trackingRequest = nil
+        manualSeedTrustFrames = 0
         if stateMachine.state != .idle {
             stateMachine.observe(confidence: confidence, at: lastSeconds)
         }

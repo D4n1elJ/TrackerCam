@@ -104,14 +104,61 @@ struct CameraView: View {
             .simultaneousGesture(
                 SpatialTapGesture(count: 1, coordinateSpace: .local)
                     .onEnded { value in
-                        guard size.width > 0, size.height > 0 else { return }
-                        viewModel.refocus(atNormalizedPoint: CGPoint(
-                            x: value.location.x / size.width,
-                            y: value.location.y / size.height))
+                        guard let normalized = sourceNormalizedPoint(
+                            from: value.location,
+                            viewSize: size,
+                            aspectFill: previewAspectFill
+                        ) else { return }
+                        viewModel.refocus(atNormalizedPoint: normalized)
                     },
                 including: .gesture
             )
             .accessibilityHidden(true)
+    }
+
+    private func sourceNormalizedPoint(from location: CGPoint,
+                                       viewSize: CGSize,
+                                       aspectFill: Bool) -> CGPoint? {
+        guard viewSize.width > 0, viewSize.height > 0 else { return nil }
+
+        let outputSize = Self.outputSize(for: viewModel.settingsStore.settings.aspectRatio)
+        guard outputSize.width > 0, outputSize.height > 0 else { return nil }
+
+        let textureAspect = outputSize.width / outputSize.height
+        let viewAspect = viewSize.width / viewSize.height
+        let drawSize: CGSize
+        if aspectFill {
+            drawSize = viewAspect > textureAspect
+                ? CGSize(width: viewSize.width, height: viewSize.width / textureAspect)
+                : CGSize(width: viewSize.height * textureAspect, height: viewSize.height)
+        } else {
+            drawSize = viewAspect > textureAspect
+                ? CGSize(width: viewSize.height * textureAspect, height: viewSize.height)
+                : CGSize(width: viewSize.width, height: viewSize.width / textureAspect)
+        }
+
+        let origin = CGPoint(x: (viewSize.width - drawSize.width) / 2,
+                             y: (viewSize.height - drawSize.height) / 2)
+        let outputX = (location.x - origin.x) / drawSize.width
+        let outputY = (location.y - origin.y) / drawSize.height
+        if !aspectFill, (outputX < 0 || outputX > 1 || outputY < 0 || outputY > 1) {
+            return nil
+        }
+
+        let clampedX = min(1, max(0, outputX))
+        let clampedY = min(1, max(0, outputY))
+        let crop = viewModel.cropInSourceRect ?? CGRect(x: 0, y: 0, width: 1, height: 1)
+        return CGPoint(x: crop.minX + clampedX * crop.width,
+                       y: crop.minY + clampedY * crop.height)
+    }
+
+    private static func outputSize(for aspect: AspectRatioMode) -> CGSize {
+        switch aspect {
+        case .landscape16x9: return CGSize(width: 1920, height: 1080)
+        case .portrait9x16: return CGSize(width: 1080, height: 1920)
+        case .square1x1: return CGSize(width: 1080, height: 1080)
+        case .fullFrame: return CGSize(width: 3840, height: 2160)
+        }
     }
 
     private var controls: some View {
