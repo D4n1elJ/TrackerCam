@@ -34,6 +34,7 @@
 		CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */; };
 		CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */; };
 		E1ED9A4CC67CC2870020B6F4 /* RecordingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9FF827FE583EA6811CF4F0B /* RecordingsView.swift */; };
+		E9E5A41E8A2110737ABCF9DE /* SimulatorVideoFeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 529D904A2A6B6D4651E4652F /* SimulatorVideoFeeder.swift */; };
 		ED0B10E4891F3A208DEF8A11 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */; };
 		F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0E2491471954DE635B579E /* MetalPreviewView.swift */; };
 		F98C5657A2166E3D76610425 /* RecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 661010AE9037A80E2C768216 /* RecordingStore.swift */; };
@@ -56,6 +57,7 @@
 		29D0F800A5F905D175907D96 /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
 		3243DE2C1554F5DDB9D37A2D /* TrackerCamCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TrackerCamCore; path = TrackerCamCore; sourceTree = SOURCE_ROOT; };
 		3C0E2491471954DE635B579E /* MetalPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalPreviewView.swift; sourceTree = "<group>"; };
+		529D904A2A6B6D4651E4652F /* SimulatorVideoFeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorVideoFeeder.swift; sourceTree = "<group>"; };
 		548AEEEF5623022528D3B9BC /* ThermalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalManager.swift; sourceTree = "<group>"; };
 		5A2B84CA3E410DA99E7D30EA /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		661010AE9037A80E2C768216 /* RecordingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingStore.swift; sourceTree = "<group>"; };
@@ -223,6 +225,7 @@
 			children = (
 				91CACA31FEC3972D2FF88E5E /* CameraService.swift */,
 				A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */,
+				529D904A2A6B6D4651E4652F /* SimulatorVideoFeeder.swift */,
 				548AEEEF5623022528D3B9BC /* ThermalManager.swift */,
 			);
 			path = Services;
@@ -409,6 +412,7 @@
 				2DA8495A5A9DD9016D86081A /* SettingsStore.swift in Sources */,
 				897E14C4BDCBC09860AABE0D /* SettingsView.swift in Sources */,
 				61C20C6AEB426D9A9F42667D /* SidecarPlayback.swift in Sources */,
+				E9E5A41E8A2110737ABCF9DE /* SimulatorVideoFeeder.swift in Sources */,
 				2BA2D15CA5333BD11326F879 /* ThermalManager.swift in Sources */,
 				6C8229D2FC823CCBDC11CBA9 /* TrackerCamApp.swift in Sources */,
 				1DBF4814F72C6547D7314141 /* TrackingEngine.swift in Sources */,

@@ -62,6 +62,9 @@ final class CameraViewModel {
     private var interruptionTask: Task<Void, Never>?
     private var lifecycleGeneration: UInt64 = 0
     private var recording: RecordingService?
+#if targetEnvironment(simulator)
+    private var simulatorVideoFeeder: SimulatorVideoFeeder?
+#endif
     private let thermal = ThermalManager()
 
     /// Thermal level as text for the debug HUD (plan §12/§15).
@@ -114,6 +117,9 @@ final class CameraViewModel {
         self.camera = CameraService(router: router)
         self.trackingEngine = TrackingEngine(settings: settingsStore.settings)
         self.detection = DetectionService()
+#if targetEnvironment(simulator)
+        self.simulatorVideoFeeder = SimulatorVideoFeeder(router: router)
+#endif
     }
 
     // MARK: - Lifecycle
@@ -173,6 +179,14 @@ final class CameraViewModel {
             }
             camera.startRunning()
         } catch {
+#if targetEnvironment(simulator)
+            if case CameraService.CameraError.noCamera = error,
+               let fixtureURL = SimulatorVideoFeeder.fixtureURL {
+                effectiveConfigSummary = "Fixture video"
+                simulatorVideoFeeder?.start(url: fixtureURL)
+                return
+            }
+#endif
             effectiveConfigSummary = "Camera config failed: \(error)"
         }
     }
@@ -180,6 +194,9 @@ final class CameraViewModel {
     func onDisappear() {
         lifecycleGeneration &+= 1
         camera.stopRunning()
+#if targetEnvironment(simulator)
+        simulatorVideoFeeder?.stop()
+#endif
         consumerTask?.cancel()
         detectionTask?.cancel()
         targetTask?.cancel()

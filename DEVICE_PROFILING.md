@@ -17,6 +17,14 @@ make validate-archive
 
 Install/run from Xcode on the device with the same scheme, then profile with Instruments.
 
+## Simulator Fixture Video
+
+The iOS simulator has no camera. For UI and pipeline smoke testing with prerecorded footage, add a
+video named `SimulatorFixture.mov` or `SimulatorFixture.mp4` to `TrackerCam/Resources/` before
+building, or place it in the app's Documents directory at runtime. On simulator only, TrackerCam will
+decode that video and feed its frames through the live tracking/reframe pipeline when camera
+configuration reports no camera.
+
 ## Instruments Runs
 
 1. Time Profiler: record at least 5 minutes at 1080p/60 tracked output. Inspect Vision tracking, detection, GPU reframe, and SwiftUI publish cost.
