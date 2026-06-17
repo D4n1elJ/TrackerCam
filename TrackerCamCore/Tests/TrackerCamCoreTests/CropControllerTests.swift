@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Stateful crop smoothing/rate-limiting. Plan §10 (Dynamic Zoom Controller, Motion Smoothing).
 func runCropControllerTests() {
     let source = TCRect(x: 0, y: 0, width: 3840, height: 2160)

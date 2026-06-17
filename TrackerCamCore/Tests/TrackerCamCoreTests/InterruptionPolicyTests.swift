@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Capture interruption → action mapping. Plan §14 Interruption Policy.
 func runInterruptionPolicyTests() {
     let p = InterruptionPolicy()

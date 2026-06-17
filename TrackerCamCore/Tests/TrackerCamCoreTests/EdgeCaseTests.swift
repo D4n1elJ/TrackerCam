@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Robustness for on-device edge cases (degenerate dt, zero sizes, oversize crops).
 func runEdgeCaseTests() {
     let source = TCRect(x: 0, y: 0, width: 3840, height: 2160)

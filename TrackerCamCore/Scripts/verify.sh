@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 # Local verification harness for TrackerCamCore.
 #
-# SwiftPM and XCTest are unavailable under the Command Line Tools used in this dev sandbox,
-# so we compile the library sources + LocalTests into one executable with swiftc and run it.
-# In a full Xcode/CI environment, prefer `swift test` against the native XCTest target.
+# Runs the framework-free core-logic suites through Swift Testing (`swift test`). The suites live in
+# Tests/TrackerCamCoreTests and are driven sequentially by the `coreLogic` @Test (see TestSupport.swift).
+# Uses the full Xcode toolchain when available (Command Line Tools alone lacks a usable test runner).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-OUT="$(mktemp -d)/tcc-tests"
-swiftc \
-  Sources/TrackerCamCore/*.swift \
-  LocalTests/*.swift \
-  -o "$OUT"
+if [ -d /Applications/Xcode.app ]; then
+  export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+fi
 
-RESULT="$("$OUT")"
-echo "$RESULT"
-echo "$RESULT" | grep -q "^RESULT: PASS" || { echo "verify.sh: tests failed"; exit 1; }
+swift test

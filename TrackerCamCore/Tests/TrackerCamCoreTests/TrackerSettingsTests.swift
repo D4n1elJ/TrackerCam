@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Settings model + defaults. Plan §13 Settings Specification.
 func runSettingsTests() {
     let d = TrackerSettings.default

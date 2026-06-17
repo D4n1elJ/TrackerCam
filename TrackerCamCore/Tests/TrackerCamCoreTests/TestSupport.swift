@@ -1,12 +1,13 @@
-// Minimal assertion harness so the core logic can be verified with `swiftc` directly.
-//
-// SwiftPM and XCTest are unavailable in the Command Line Tools sandbox used for development,
-// and the bundled SDK is mismatched with the compiler so Foundation/CoreGraphics won't import.
-// TrackerCamCore is therefore framework-free (pure Swift), which lets us compile and run it here.
-// The same behaviors are mirrored by native XCTest files for the user's Xcode/CI environment.
+@testable import TrackerCamCore
 
-private(set) var checksRun = 0
-private(set) var failures: [String] = []
+// Minimal assertion harness for the core-logic suites. The suites are plain functions that call
+// `expect(...)` and accumulate into the shared counters below; the `coreLogic` @Test drives them
+// all and asserts no failures. TrackerCamCore is framework-free (pure Swift) by design.
+//
+// Single-threaded use: the suites run sequentially inside one @Test, so the shared accumulator is
+// never touched concurrently — nonisolated(unsafe) states that to the Swift 6 compiler.
+nonisolated(unsafe) private(set) var checksRun = 0
+nonisolated(unsafe) private(set) var failures: [String] = []
 
 func expect(_ condition: Bool, _ message: @autoclosure () -> String,
             file: StaticString = #file, line: UInt = #line) {

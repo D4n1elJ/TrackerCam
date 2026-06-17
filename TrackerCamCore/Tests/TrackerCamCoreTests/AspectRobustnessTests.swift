@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Aspect-ratio robustness across landscape/portrait/square. Plan §10 Aspect Ratio Modes.
 func runAspectRobustnessTests() {
     let source = TCRect(x: 0, y: 0, width: 3840, height: 2160)

@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Tracking state machine. Plan §8 Tracking State Machine.
 // Durations are authoritative (seconds); transitions are time-based so behavior is fps-independent.
 func runTrackingStateMachineTests() {

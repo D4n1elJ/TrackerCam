@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Constant-velocity Kalman filter on (x, y, vx, vy). See plan §10 Motion Smoothing.
 func runKalmanTests() {
     // First update initializes the estimate to the measurement.

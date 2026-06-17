@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Sidecar crop metadata (NDJSON) for post-recrop / replay overlay. Plan §14 Sidecar Format.
 func runCropMetadataTests() {
     let r = CropFrameRecord(

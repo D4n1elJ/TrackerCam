@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Vision returns normalized coords with origin at BOTTOM-left, y upward.
 // Canonical space is source pixels with origin at TOP-left, y downward (plan §10).
 func runVisionGeometryTests() {

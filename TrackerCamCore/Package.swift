@@ -15,10 +15,11 @@ let package = Package(
     products: [
         .library(name: "TrackerCamCore", targets: ["TrackerCamCore"]),
     ],
-    // No SwiftPM test target: the core is verified via Scripts/verify.sh (swiftc harness in
-    // LocalTests/), which avoids the broken SwiftPM/XCTest in this environment. LocalTests/ lives
-    // outside Sources/ so it is not compiled into the library.
+    // Core logic is verified with Swift Testing via `swift test` (Tests/TrackerCamCoreTests). The
+    // suites are framework-free and run sequentially through the `coreLogic` @Test. Scripts/verify.sh
+    // wraps `swift test` so `make validate-core` stays a single command.
     targets: [
         .target(name: "TrackerCamCore"),
+        .testTarget(name: "TrackerCamCoreTests", dependencies: ["TrackerCamCore"]),
     ]
 )

@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Per-state desired-crop planning incl. the lost ladder. Plan §10 Crop State Machine.
 func runCropPlannerTests() {
     let planner = CropPlanner() // lostPredict 0.75s, easeEnd 2.0s, searchingWiden 0.15

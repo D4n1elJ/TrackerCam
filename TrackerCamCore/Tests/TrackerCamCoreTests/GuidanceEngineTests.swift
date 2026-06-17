@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Operator pan/aim guidance. Plan §11 Framing Guidance System.
 func runGuidanceEngineTests() {
     let source = TCRect(x: 0, y: 0, width: 4000, height: 2000) // center (2000,1000)

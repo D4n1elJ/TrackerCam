@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Crop geometry math. Plan §10 Reframe, Crop & Stabilization.
 func runCropMathTests() {
     // --- expanded(byFraction:) keeps center, grows each dimension by the fraction (total) ---

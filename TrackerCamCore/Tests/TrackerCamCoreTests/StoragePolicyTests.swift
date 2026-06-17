@@ -1,3 +1,5 @@
+@testable import TrackerCamCore
+
 // Recording storage estimation. Plan §14 Save Destination / low-space handling.
 func runStoragePolicyTests() {
     let p = StoragePolicy(criticalSeconds: 30, reserveBytes: 0)
