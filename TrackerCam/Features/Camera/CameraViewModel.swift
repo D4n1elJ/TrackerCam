@@ -20,6 +20,7 @@ final class CameraViewModel {
     // Published UI state.
     private(set) var trackingState: TrackingState = .idle
     private(set) var subjectViewRect: CGRect?       // in preview-view coordinates
+    private(set) var selectedSeedViewRect: CGRect?  // immediate tap-selected seed in preview coords
     private(set) var guidanceHint: GuidanceEngine.Hint?
     private(set) var isRecording = false
     private(set) var elapsed: TimeInterval = 0
@@ -230,9 +231,12 @@ final class CameraViewModel {
                 side: side,
                 source: source
             )
+            let visibleCrop = Self.cropPixels(fromNormalized: cropInSourceRect, source: source)
+            selectedSeedViewRect = Self.rectInCrop(seed, crop: visibleCrop)
         } else {
             seed = TCRect(center: source.center,
                           size: TCSize(width: source.width * 0.3, height: source.height * 0.3))
+            selectedSeedViewRect = nil
         }
         cropController.reset()   // snap to the new target rather than slewing from the old crop
         targetTask?.cancel()
@@ -243,6 +247,7 @@ final class CameraViewModel {
     func clearTarget() {
         cropController.reset()
         lostSince = nil
+        selectedSeedViewRect = nil
         targetTask?.cancel()
         targetTask = Task { await trackingEngine.clearTarget() }
     }
@@ -431,7 +436,7 @@ final class CameraViewModel {
         // Coordinates are normalized, so reduced resolution is transparent to the crop math.
         var visionBuffer = payload.pixelBuffer
         let active = trackingState != .idle
-        let autoAcquire = s.acquisitionMode != .tap && detection.isModelLoaded
+        let autoAcquire = s.acquisitionMode != .tap && detection.canAutoAcquire
         if active || autoAcquire {
             let srcDims = ctx.sourceDimensions
             if analysisScaler == nil || analysisDims != srcDims {
@@ -447,7 +452,7 @@ final class CameraViewModel {
 
         // Detector cadence: run decoupled on the owned downscaled buffer so the inference spike never
         // blocks per-frame tracking (latest-wins; at most one in flight, plan §6 backpressure).
-        if redetect, (active || autoAcquire), detection.isModelLoaded, !detectionInFlight {
+        if redetect, (active || autoAcquire), detection.canAutoAcquire, !detectionInFlight {
             detectionInFlight = true
             let detector = detection
             let dims = sourceSize
@@ -578,6 +583,7 @@ final class CameraViewModel {
             lastUIPublishT = t
             trackingState = result.state
             subjectViewRect = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
+            if result.state != .searching { selectedSeedViewRect = nil }
             guidanceHint = hint
             cropInSourceRect = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
                                       width: crop.width / source.width, height: crop.height / source.height)
@@ -613,6 +619,14 @@ final class CameraViewModel {
         let x = min(max(center.x - half, source.minX), source.maxX - clampedSide)
         let y = min(max(center.y - half, source.minY), source.maxY - clampedSide)
         return TCRect(x: x, y: y, width: clampedSide, height: clampedSide)
+    }
+
+    private static func cropPixels(fromNormalized crop: CGRect?, source: TCRect) -> TCRect {
+        guard let crop else { return source }
+        return TCRect(x: crop.minX * source.width,
+                      y: crop.minY * source.height,
+                      width: crop.width * source.width,
+                      height: crop.height * source.height)
     }
 
     /// Analysis-buffer size: source aspect preserved, scaled so the long side is ~1280px. Keeping the

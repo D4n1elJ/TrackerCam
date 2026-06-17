@@ -9,7 +9,7 @@ struct SettingsView: View {
     @AppStorage("trackercam.showGrid") private var showGrid = false
     @AppStorage("trackercam.previewAspectFill") private var previewAspectFill = true
     private let cameraCapabilities = CameraService.discoverCapabilities()
-    private let detectorAvailable = DetectionService.isBundledModelAvailable
+    private let detectorAvailable = DetectionService.isAutoAcquireAvailable
 
     var body: some View {
         @Bindable var store = store

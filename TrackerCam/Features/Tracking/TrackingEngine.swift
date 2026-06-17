@@ -99,6 +99,7 @@ actor TrackingEngine {
 
         var confidence = 0.0
         var subjectPixel: TCRect? = currentSeed
+        var acceptedMeasurement: TCRect?
         var frameVisionError: String?
 
         // Frame-to-frame tracking via Vision (established API).
@@ -118,14 +119,23 @@ actor TrackingEngine {
                     try sequenceHandler.perform([req], on: pixelBuffer)
                     if let obs = req.results?.first as? VNDetectedObjectObservation {
                         let pixel = VisionGeometry.pixelRect(fromNormalized: TCRect(obs.boundingBox), imageSize: sourceSize)
-                        subjectPixel = pixel
-                        confidence = max(confidence, Double(obs.confidence))
-                        if manualSeedTrustFrames > 0 {
-                            confidence = max(confidence, settings.confidenceThreshold + 0.1)
-                            manualSeedTrustFrames -= 1
+                        let isManualBootstrap = manualSeedTrustFrames > 0
+                        if Self.acceptsVisionMeasurement(pixel, previous: seed, sourceSize: sourceSize, strict: isManualBootstrap) {
+                            subjectPixel = pixel
+                            acceptedMeasurement = pixel
+                            confidence = max(confidence, Double(obs.confidence))
+                            if isManualBootstrap {
+                                confidence = max(confidence, settings.confidenceThreshold + 0.1)
+                                manualSeedTrustFrames -= 1
+                            }
+                            currentSeed = pixel
+                            lastVisionErrorDescription = nil
+                        } else {
+                            if isManualBootstrap {
+                                manualSeedTrustFrames = max(0, manualSeedTrustFrames - 1)
+                            }
+                            trackingRequest = nil
                         }
-                        currentSeed = pixel
-                        lastVisionErrorDescription = nil
                     }
                 } catch {
                     visionFailureCount += 1
@@ -138,7 +148,7 @@ actor TrackingEngine {
 
         // Feed the state machine and smoother.
         stateMachine.observe(confidence: confidence, at: lastSeconds)
-        if let s = subjectPixel {
+        if let s = acceptedMeasurement {
             kalman.predictIfNeeded(to: lastSeconds, last: &lastObservationPTS)
             kalman.update(measurement: s.center)
         }
@@ -173,6 +183,36 @@ actor TrackingEngine {
         // Lower smoothing strength → more responsive (higher process noise). Map [0,1] → [50, 1].
         let s = max(0, min(1, smoothingStrength))
         return 50.0 * (1.0 - s) + 1.0
+    }
+
+    private static func acceptsVisionMeasurement(_ rect: TCRect,
+                                                 previous: TCRect,
+                                                 sourceSize: TCSize,
+                                                 strict: Bool) -> Bool {
+        guard rect.isFiniteAndPositive else { return false }
+
+        let sourceDiagonal = hypot(sourceSize.width, sourceSize.height)
+        let previousDiagonal = hypot(previous.width, previous.height)
+        let dx = rect.center.x - previous.center.x
+        let dy = rect.center.y - previous.center.y
+        let centerDistance = hypot(dx, dy)
+        let jumpLimit = max(previousDiagonal * (strict ? 1.25 : 2.25),
+                            sourceDiagonal * (strict ? 0.045 : 0.10))
+        guard centerDistance <= jumpLimit else { return false }
+
+        let widthRatio = rect.width / max(previous.width, 1)
+        let heightRatio = rect.height / max(previous.height, 1)
+        let lowerBound = strict ? 0.45 : 0.30
+        let upperBound = strict ? 2.20 : 3.25
+        guard widthRatio >= lowerBound, widthRatio <= upperBound,
+              heightRatio >= lowerBound, heightRatio <= upperBound else {
+            return false
+        }
+
+        if strict {
+            return rect.iou(previous.expanded(byFraction: 1.5)) > 0
+        }
+        return true
     }
 }
 

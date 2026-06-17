@@ -11,7 +11,7 @@ struct CameraView: View {
     @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
     @AppStorage("trackercam.showGrid") private var showGrid = false
     @AppStorage("trackercam.previewAspectFill") private var previewAspectFill = true
-    private let detectorAvailable = DetectionService.isBundledModelAvailable
+    private let detectorAvailable = DetectionService.isAutoAcquireAvailable
 
     var body: some View {
         GeometryReader { geo in
@@ -34,6 +34,7 @@ struct CameraView: View {
 
                     OverlayView(state: viewModel.trackingState,
                                 subjectRect: viewModel.subjectViewRect,
+                                selectedSeedRect: viewModel.selectedSeedViewRect,
                                 hint: viewModel.guidanceHint,
                                 confidence: viewModel.confidence,
                                 viewSize: geo.size)

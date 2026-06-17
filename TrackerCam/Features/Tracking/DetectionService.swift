@@ -22,9 +22,18 @@ final class DetectionService: @unchecked Sendable {
     /// call by the caller, so reuse is safe and avoids a per-cadence request allocation.
     private let request: VNCoreMLRequest?
 
+    /// Model-free subject acquisition (no trained model required). Apple's attention-based saliency
+    /// finds the dominant subject ("the thing that stands out" — the moving horse against the arena),
+    /// and human-rectangle detection finds the rider to form the compound target. Both are built into
+    /// Vision, so the app can auto-acquire with pure math — no Core ML model needed.
+    private let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
+    private let humanRequest = VNDetectHumanRectanglesRequest()
+
     static var isBundledModelAvailable: Bool {
         Bundle.main.url(forResource: "YOLO26n_horse", withExtension: "mlmodelc") != nil
     }
+
+    static var isAutoAcquireAvailable: Bool { true }
 
     init() {
         // Lazily load the bundled model; nil until the .mlpackage is added (Phase 3).
@@ -43,10 +52,27 @@ final class DetectionService: @unchecked Sendable {
 
     var isModelLoaded: Bool { visionModel != nil }
 
-    /// Returns the best compound horse+rider target in source-pixel coordinates, or nil.
+    /// The app can always auto-acquire a subject: a trained model is preferred when present, but the
+    /// saliency+human fallback needs none. Gate auto-acquisition on this, not `isModelLoaded`.
+    var canAutoAcquire: Bool { Self.isAutoAcquireAvailable }
+
+    /// Best compound subject (+rider) in source-pixel coordinates, or nil. Uses the Core ML model when
+    /// bundled, otherwise falls back to model-free saliency+human detection.
     func detectCompoundTarget(in pixelBuffer: CVPixelBuffer,
                               sourceSize: TCSize,
                               confidenceThreshold: Double) throws -> Detection? {
+        if request != nil,
+           let modelHit = try detectWithModel(in: pixelBuffer, sourceSize: sourceSize,
+                                              confidenceThreshold: confidenceThreshold) {
+            return modelHit
+        }
+        return try detectWithSaliency(in: pixelBuffer, sourceSize: sourceSize)
+    }
+
+    /// Core ML path (plan §8). Returns nil if no model or no horse found.
+    private func detectWithModel(in pixelBuffer: CVPixelBuffer,
+                                 sourceSize: TCSize,
+                                 confidenceThreshold: Double) throws -> Detection? {
         guard let request else { return nil }
 
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
@@ -73,6 +99,36 @@ final class DetectionService: @unchecked Sendable {
 
         // Associate a rider whose box overlaps the upper horse region (plan §8 Compound target).
         let rider = people.first { $0.iou(best.0) > 0.0 && $0.midY <= best.0.midY }
+
+        let compound = CropMath.compoundSubject(horse: best.0, rider: rider, padding: 0)
+        return Detection(pixelRect: compound, confidence: best.1)
+    }
+
+    /// Model-free path: attention-based saliency picks the dominant subject (the moving horse stands
+    /// out against the static arena); a detected human (rider) overlapping or above it forms the
+    /// compound target. Confidence is the saliency confidence. No trained model needed.
+    private func detectWithSaliency(in pixelBuffer: CVPixelBuffer, sourceSize: TCSize) throws -> Detection? {
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+        try handler.perform([saliencyRequest, humanRequest])
+
+        guard let saliency = saliencyRequest.results?.first as? VNSaliencyImageObservation,
+              let objects = saliency.salientObjects, !objects.isEmpty else { return nil }
+
+        // Rank salient regions by confidence × center-proximity × size (same heuristic as the model path).
+        let frameCenter = TCPoint(x: sourceSize.width / 2, y: sourceSize.height / 2)
+        let diag = (sourceSize.width * sourceSize.width + sourceSize.height * sourceSize.height).squareRoot()
+        let ranked: [(TCRect, Double)] = objects.map {
+            (VisionGeometry.pixelRect(fromNormalized: TCRect($0.boundingBox), imageSize: sourceSize), Double($0.confidence))
+        }
+        let best = ranked.max { score($0, frameCenter, diag, sourceSize) < score($1, frameCenter, diag, sourceSize) }!
+
+        // Associate a rider: a detected human overlapping the subject, or directly above it (rider on horse).
+        let people = humanRequest.results?.map {
+            VisionGeometry.pixelRect(fromNormalized: TCRect($0.boundingBox), imageSize: sourceSize)
+        } ?? []
+        let rider = people.first {
+            $0.iou(best.0) > 0 || (abs($0.center.x - best.0.center.x) < best.0.width && $0.midY <= best.0.midY)
+        }
 
         let compound = CropMath.compoundSubject(horse: best.0, rider: rider, padding: 0)
         return Detection(pixelRect: compound, confidence: best.1)

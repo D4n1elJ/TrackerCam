@@ -5,15 +5,23 @@ import TrackerCamCore
 struct OverlayView: View {
     let state: TrackingState
     let subjectRect: CGRect?     // normalized [0,1] in preview space
+    let selectedSeedRect: CGRect?
     let hint: GuidanceEngine.Hint?
     let confidence: Double
     let viewSize: CGSize
 
     var body: some View {
         ZStack {
+            if let r = selectedSeedRect {
+                let frame = viewFrame(for: r)
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(.cyan, style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+            }
+
             if let r = subjectRect, state != .idle {
-                let frame = CGRect(x: r.minX * viewSize.width, y: r.minY * viewSize.height,
-                                   width: r.width * viewSize.width, height: r.height * viewSize.height)
+                let frame = viewFrame(for: r)
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(boxColor, style: StrokeStyle(lineWidth: 3, dash: state == .lost ? [8, 6] : []))
                     .frame(width: frame.width, height: frame.height)
@@ -38,6 +46,12 @@ struct OverlayView: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .animation(.easeOut(duration: 0.12), value: subjectRect)
+        .animation(.easeOut(duration: 0.12), value: selectedSeedRect)
+    }
+
+    private func viewFrame(for rect: CGRect) -> CGRect {
+        CGRect(x: rect.minX * viewSize.width, y: rect.minY * viewSize.height,
+               width: rect.width * viewSize.width, height: rect.height * viewSize.height)
     }
 
     private var boxColor: Color {
