@@ -1,3 +1,4 @@
+import Foundation
 @testable import TrackerCamCore
 
 // Settings model + defaults. Plan §13 Settings Specification.
@@ -62,4 +63,40 @@ func runSettingsTests() {
     let cfg = d.trackingConfig
     expectClose(cfg.lostTimeout, d.lostTrackTimeout, tol: 1e-9, "config lost timeout")
     expectClose(cfg.confidenceThreshold, d.confidenceThreshold, tol: 1e-9, "config confidence")
+
+    // Missing fields from older persisted settings decode with defaults instead of resetting all settings.
+    let oldJSON = """
+    {
+      "acquisitionMode": "tap",
+      "redetectionInterval": 1.25,
+      "lostTrackTimeout": 0.75,
+      "confidenceThreshold": 0.60,
+      "smoothingStrength": 0.40,
+      "aspectRatio": "landscape16x9",
+      "targetSubjectHeight": 0.30,
+      "subjectPadding": 0.22,
+      "compositionLeadFraction": 0.05,
+      "verticalCompositionOffset": -0.03,
+      "userLeadTime": 0.20,
+      "dynamicZoomEnabled": false,
+      "showMiniMap": true,
+      "outputResolution": "tracked1080p",
+      "frameRate": "preferred60",
+      "lens": "main",
+      "guidanceEnabled": false,
+      "guidanceDeadZone": 0.10,
+      "guidanceLookahead": 0.25,
+      "guidanceHaptics": false,
+      "recordingMode": "trackedOnly",
+      "overlayInRecording": false,
+      "preserveFull4KSource": false,
+      "exportCropMetadata": true,
+      "saveDestination": "app",
+      "detectionModel": "standard"
+    }
+    """.data(using: .utf8)!
+    let migrated = try! JSONDecoder().decode(TrackerSettings.self, from: oldJSON)
+    expectEqual(migrated.acquisitionMode, .tap, "migration preserves existing enum")
+    expectClose(migrated.redetectionInterval, 1.25, tol: 1e-9, "migration preserves numeric")
+    expectClose(migrated.minCropFraction, TrackerSettings.default.minCropFraction, tol: 1e-9, "migration defaults missing crop floor")
 }

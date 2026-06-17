@@ -80,6 +80,36 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
     // Advanced
     public var detectionModel: DetectionModel
 
+    private enum CodingKeys: String, CodingKey {
+        case acquisitionMode
+        case redetectionInterval
+        case lostTrackTimeout
+        case confidenceThreshold
+        case smoothingStrength
+        case aspectRatio
+        case targetSubjectHeight
+        case subjectPadding
+        case compositionLeadFraction
+        case verticalCompositionOffset
+        case userLeadTime
+        case dynamicZoomEnabled
+        case minCropFraction
+        case showMiniMap
+        case outputResolution
+        case frameRate
+        case lens
+        case guidanceEnabled
+        case guidanceDeadZone
+        case guidanceLookahead
+        case guidanceHaptics
+        case recordingMode
+        case overlayInRecording
+        case preserveFull4KSource
+        case exportCropMetadata
+        case saveDestination
+        case detectionModel
+    }
+
     public init(
         acquisitionMode: AcquisitionMode,
         redetectionInterval: Double,
@@ -136,6 +166,40 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
         self.exportCropMetadata = exportCropMetadata
         self.saveDestination = saveDestination
         self.detectionModel = detectionModel
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = TrackerSettings.default
+        self.init(
+            acquisitionMode: try values.decodeIfPresent(AcquisitionMode.self, forKey: .acquisitionMode) ?? defaults.acquisitionMode,
+            redetectionInterval: try values.decodeIfPresent(Double.self, forKey: .redetectionInterval) ?? defaults.redetectionInterval,
+            lostTrackTimeout: try values.decodeIfPresent(Double.self, forKey: .lostTrackTimeout) ?? defaults.lostTrackTimeout,
+            confidenceThreshold: try values.decodeIfPresent(Double.self, forKey: .confidenceThreshold) ?? defaults.confidenceThreshold,
+            smoothingStrength: try values.decodeIfPresent(Double.self, forKey: .smoothingStrength) ?? defaults.smoothingStrength,
+            aspectRatio: try values.decodeIfPresent(AspectRatioMode.self, forKey: .aspectRatio) ?? defaults.aspectRatio,
+            targetSubjectHeight: try values.decodeIfPresent(Double.self, forKey: .targetSubjectHeight) ?? defaults.targetSubjectHeight,
+            subjectPadding: try values.decodeIfPresent(Double.self, forKey: .subjectPadding) ?? defaults.subjectPadding,
+            compositionLeadFraction: try values.decodeIfPresent(Double.self, forKey: .compositionLeadFraction) ?? defaults.compositionLeadFraction,
+            verticalCompositionOffset: try values.decodeIfPresent(Double.self, forKey: .verticalCompositionOffset) ?? defaults.verticalCompositionOffset,
+            userLeadTime: try values.decodeIfPresent(Double.self, forKey: .userLeadTime) ?? defaults.userLeadTime,
+            dynamicZoomEnabled: try values.decodeIfPresent(Bool.self, forKey: .dynamicZoomEnabled) ?? defaults.dynamicZoomEnabled,
+            minCropFraction: try values.decodeIfPresent(Double.self, forKey: .minCropFraction) ?? defaults.minCropFraction,
+            showMiniMap: try values.decodeIfPresent(Bool.self, forKey: .showMiniMap) ?? defaults.showMiniMap,
+            outputResolution: try values.decodeIfPresent(OutputResolution.self, forKey: .outputResolution) ?? defaults.outputResolution,
+            frameRate: try values.decodeIfPresent(FrameRatePreset.self, forKey: .frameRate) ?? defaults.frameRate,
+            lens: try values.decodeIfPresent(LensSelection.self, forKey: .lens) ?? defaults.lens,
+            guidanceEnabled: try values.decodeIfPresent(Bool.self, forKey: .guidanceEnabled) ?? defaults.guidanceEnabled,
+            guidanceDeadZone: try values.decodeIfPresent(Double.self, forKey: .guidanceDeadZone) ?? defaults.guidanceDeadZone,
+            guidanceLookahead: try values.decodeIfPresent(Double.self, forKey: .guidanceLookahead) ?? defaults.guidanceLookahead,
+            guidanceHaptics: try values.decodeIfPresent(Bool.self, forKey: .guidanceHaptics) ?? defaults.guidanceHaptics,
+            recordingMode: try values.decodeIfPresent(RecordingMode.self, forKey: .recordingMode) ?? defaults.recordingMode,
+            overlayInRecording: try values.decodeIfPresent(Bool.self, forKey: .overlayInRecording) ?? defaults.overlayInRecording,
+            preserveFull4KSource: try values.decodeIfPresent(Bool.self, forKey: .preserveFull4KSource) ?? defaults.preserveFull4KSource,
+            exportCropMetadata: try values.decodeIfPresent(Bool.self, forKey: .exportCropMetadata) ?? defaults.exportCropMetadata,
+            saveDestination: try values.decodeIfPresent(SaveDestination.self, forKey: .saveDestination) ?? defaults.saveDestination,
+            detectionModel: try values.decodeIfPresent(DetectionModel.self, forKey: .detectionModel) ?? defaults.detectionModel
+        )
     }
 
     /// The `Training Review` preset — plan §13 Default Values.

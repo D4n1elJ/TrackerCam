@@ -119,6 +119,13 @@ final class CameraViewModel {
     // MARK: - Lifecycle
 
     func onAppear() async {
+        consumerTask?.cancel()
+        detectionTask?.cancel()
+        targetTask?.cancel()
+        streamContinuation?.finish()
+        streamContinuation = nil
+        router.onFrame = nil
+
         lifecycleGeneration &+= 1
         let generation = lifecycleGeneration
         guard await CameraService.requestAccess() else { permissionDenied = true; return }

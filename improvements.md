@@ -278,3 +278,9 @@ Prioritized review based on the local iOS development skills: build/XcodeGen, Sw
     - Files: `TrackerCam/Features/Recording/RecordingsView.swift`, `TrackerCam/Features/Recording/ReplayView.swift`, sidecar metadata
     - Product goal: consumer-focused training review.
     - Expected fix: make saved clips easy to replay, scrub, and inspect with tracking overlay; add share/export later.
+
+## Additional Hardening Completed
+
+- Settings migration: `TrackerSettings` now decodes missing fields with defaults, so older persisted settings keep the user's choices when new settings such as `minCropFraction` are added.
+- Lifecycle idempotency: `CameraViewModel.onAppear()` now cancels stale consumer, detection, and target work before wiring a new frame stream, avoiding duplicate processing if SwiftUI re-enters the view lifecycle.
+- Validation: added a core migration test and reran `make validate-core`, `make validate-sim`, and `make validate-archive` successfully.
