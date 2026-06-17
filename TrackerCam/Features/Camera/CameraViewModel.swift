@@ -335,7 +335,7 @@ final class CameraViewModel {
                 analysisDims = srcDims
                 analysisScaler = ReframePipeline(outputSize: Self.analysisSize(for: srcDims), poolSize: 6)
             }
-            if let a = await analysisScaler?.render(pixelBuffer: payload.pixelBuffer,
+            if let a = await analysisScaler?.render(payload: payload,
                                                     cropPixelRect: source, sourceSize: sourceSize) {
                 visionBuffer = a.pixelBuffer
             }
@@ -362,7 +362,11 @@ final class CameraViewModel {
         }
 
         // Tracking (sequential; the actor + ordered stream keep frames in order).
+        let trackSP = signposter.beginInterval("track")
+        let trackT0 = CACurrentMediaTime()
         let result = await trackingEngine.track(visionPayload: visionPayload, fast: thermal.useFastTracking)
+        trackMsEMA = trackMsEMA * 0.9 + (CACurrentMediaTime() - trackT0) * 1000 * 0.1
+        signposter.endInterval("track", trackSP)
 
         // Track last-known motion (used to predict during loss) and the lost-onset time.
         if let center = result.smoothedCenter {
@@ -405,9 +409,19 @@ final class CameraViewModel {
         let crop = cropController.update(dt: dt, desiredCenter: planned.center,
                                          desiredSize: planned.size, source: source)
 
-        // GPU reframe → preview + record.
-        guard let rendered = await reframe?.render(pixelBuffer: payload.pixelBuffer,
-                                                   cropPixelRect: crop, sourceSize: sourceSize) else { return }
+        // GPU reframe → preview + record (runs off the main thread; awaits GPU completion).
+        let reframeSP = signposter.beginInterval("reframe")
+        let reframeT0 = CACurrentMediaTime()
+        let renderedOpt = await reframe?.render(payload: payload, cropPixelRect: crop, sourceSize: sourceSize)
+        reframeMsEMA = reframeMsEMA * 0.9 + (CACurrentMediaTime() - reframeT0) * 1000 * 0.1
+        signposter.endInterval("reframe", reframeSP)
+        guard let rendered = renderedOpt else { return }
+
+        // 1 Hz perf log for live debugging (filter Console/Xcode on subsystem com.trackercam.app).
+        if t - lastPerfLogT >= 1.0 {
+            lastPerfLogT = t
+            perfLog.notice("fps=\(Int(self.smoothedFPS), privacy: .public) trackMs=\(Int(self.trackMsEMA), privacy: .public) reframeMs=\(Int(self.reframeMsEMA), privacy: .public) thermal=\(self.thermalLevelText, privacy: .public) state=\(result.state.rawValue, privacy: .public) src=\(Int(sourceSize.width))x\(Int(sourceSize.height))")
+        }
 
 
         if isRecording, !thermal.mustStopRecording {
@@ -432,26 +446,29 @@ final class CameraViewModel {
             hint = engine.hint(subjectCenter: center, predictedVelocity: result.velocity, source: source, crop: crop)
         }
 
-        // Publish to UI on the main actor.
-        let subjectInCrop = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
-        let cropFraction = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
-                                  width: crop.width / source.width, height: crop.height / source.height)
-        await MainActor.run {
-            // Haptics on lock/lost transitions (plan §12), gated by the guidance-haptics setting.
-            let prevState = self.trackingState
-            if self.settingsStore.settings.guidanceHaptics, prevState != result.state {
-                if result.state == .locked { self.haptics.notificationOccurred(.success) }
-                else if result.state == .lost { self.haptics.notificationOccurred(.warning) }
-            }
-            self.trackingState = result.state
-            self.latestPreviewTexture = rendered.texture
-            self.requestPreviewRedraw?()   // draw this frame on demand
-            self.subjectViewRect = subjectInCrop
-            self.guidanceHint = hint
-            self.cropInSourceRect = cropFraction
-            self.confidence = result.confidence
-            self.fps = self.smoothedFPS
+        // --- Publish (already on the main actor) ---
+        // Preview texture + redraw every frame (kept at capture rate): not read in any SwiftUI body,
+        // so it drives the MTKView without triggering SwiftUI re-renders. Draw this frame on demand.
+        latestPreviewTexture = rendered.texture
+        requestPreviewRedraw?()
 
+        // Haptics fire promptly on every real transition (cheap), independent of the UI throttle.
+        if s.guidanceHaptics, lastHapticState != result.state {
+            if result.state == .locked { haptics.notificationOccurred(.success) }
+            else if result.state == .lost { haptics.notificationOccurred(.warning) }
+        }
+        lastHapticState = result.state
+
+        // Throttle the SwiftUI overlay/state to ~15 Hz — re-rendering overlays at 60 Hz is wasteful.
+        if t - lastUIPublishT >= 1.0 / 15 {
+            lastUIPublishT = t
+            trackingState = result.state
+            subjectViewRect = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
+            guidanceHint = hint
+            cropInSourceRect = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
+                                      width: crop.width / source.width, height: crop.height / source.height)
+            confidence = result.confidence
+            fps = smoothedFPS
             let level = UIDevice.current.batteryLevel
             batteryLow = level >= 0 && level < 0.2
             if isRecording, recordStartPTS.isValid {

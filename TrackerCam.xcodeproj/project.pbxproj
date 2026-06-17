@@ -40,7 +40,7 @@
 		1075BAAE23507C186CDEE12E /* DetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionService.swift; sourceTree = "<group>"; };
 		1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		29D0F800A5F905D175907D96 /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
-		3243DE2C1554F5DDB9D37A2D /* TrackerCamCore */ = {isa = PBXFileReference; lastKnownFileType = folder; path = TrackerCamCore; sourceTree = SOURCE_ROOT; };
+		3243DE2C1554F5DDB9D37A2D /* TrackerCamCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TrackerCamCore; path = TrackerCamCore; sourceTree = SOURCE_ROOT; };
 		3C0E2491471954DE635B579E /* MetalPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalPreviewView.swift; sourceTree = "<group>"; };
 		548AEEEF5623022528D3B9BC /* ThermalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalManager.swift; sourceTree = "<group>"; };
 		5A2B84CA3E410DA99E7D30EA /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
@@ -51,7 +51,7 @@
 		84E5615BCE79D74FD8C4564D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		880FA74AA118DDADEE66C407 /* ReframePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReframePipeline.swift; sourceTree = "<group>"; };
 		907CD368107435FF0823E229 /* TrackerCam.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerCam.entitlements; sourceTree = "<group>"; };
-		91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		91CACA31FEC3972D2FF88E5E /* CameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraService.swift; sourceTree = "<group>"; };
 		92C523EDBAE8290E6E82220F /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		945DCC1F528C76BD80E3A8A3 /* SidecarPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarPlayback.swift; sourceTree = "<group>"; };
@@ -66,7 +66,7 @@
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
 		E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -278,6 +278,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					105702D005A163730A148FE6 = {
+						DevelopmentTeam = J98R4BWQVY;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -419,9 +420,8 @@
 				CODE_SIGN_ENTITLEMENTS = TrackerCam/App/TrackerCam.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = DZNC8GD6WJ;
+				DEVELOPMENT_TEAM = J98R4BWQVY;
 				INFOPLIST_FILE = TrackerCam/App/Info.plist;
-
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -440,9 +440,8 @@
 				CODE_SIGN_ENTITLEMENTS = TrackerCam/App/TrackerCam.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = DZNC8GD6WJ;
+				DEVELOPMENT_TEAM = J98R4BWQVY;
 				INFOPLIST_FILE = TrackerCam/App/Info.plist;
-
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

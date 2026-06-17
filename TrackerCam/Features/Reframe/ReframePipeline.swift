@@ -7,11 +7,10 @@ import TrackerCamCore
 /// One crop decision + one sampling pass feeds BOTH preview (MTLTexture) and recording
 /// (the same frame as an IOSurface-backed CVPixelBuffer), so they can never diverge.
 ///
-/// Main-actor isolated: it is only ever driven from `CameraViewModel`'s per-frame path, so this
-/// keeps the (non-Sendable) source pixel buffer from crossing isolation while still letting the
-/// GPU run asynchronously (see `render`).
-@MainActor
-final class ReframePipeline {
+/// `@unchecked Sendable` with a dedicated `gpuQueue`: the entire encode+dispatch runs off the main
+/// thread (the non-Sendable source buffer reaches the queue inside a Sendable `FramePayload`), so
+/// the per-frame GPU work never blocks the main actor. See `render`.
+final class ReframePipeline: @unchecked Sendable {
 
     struct CropParams { var cropOrigin: SIMD2<Float>; var cropSize: SIMD2<Float> }
 
@@ -61,15 +60,27 @@ final class ReframePipeline {
         CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, device, nil, &textureCache)
     }
 
-    /// Render the source-pixel crop of `pixelBuffer` into a fresh pooled output frame.
-    /// Returns nil if textures/buffers could not be created (the frame is dropped for preview).
-    ///
-    /// Awaits the GPU via a completion handler rather than `waitUntilCompleted()`, so the caller's
-    /// thread (the main actor) is freed to service UI and other frames while the GPU runs.
-    func render(pixelBuffer: CVPixelBuffer, cropPixelRect: TCRect, sourceSize: TCSize) async -> RenderedFrame? {
-        guard let luma = makeTexture(pixelBuffer, plane: 0, format: .r8Unorm),
-              let chroma = makeTexture(pixelBuffer, plane: 1, format: .rg8Unorm) else { return nil }
+    /// Render the source-pixel crop into a fresh pooled output frame, off the main thread.
+    /// Awaits GPU completion via a completion handler (no thread blocking). Returns nil on failure.
+    /// `payload` is @unchecked Sendable so the non-Sendable buffer can cross to the GPU queue.
+    func render(payload: FramePayload, cropPixelRect: TCRect, sourceSize: TCSize) async -> RenderedFrame? {
+        await withCheckedContinuation { (cont: CheckedContinuation<RenderedFrame?, Never>) in
+            gpuQueue.async {
+                let pixelBuffer = payload.pixelBuffer
+                guard let luma = self.makeTexture(pixelBuffer, plane: 0, format: .r8Unorm),
+                      let chroma = self.makeTexture(pixelBuffer, plane: 1, format: .rg8Unorm) else {
+                    cont.resume(returning: nil); return
+                }
 
+                // Allocate the fixed-size output (one IOSurface-backed buffer feeds preview + record).
+                var outBuffer: CVPixelBuffer?
+                guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, self.pool, &outBuffer) == kCVReturnSuccess,
+                      let outBuffer,
+                      let outTex = self.makeOutputTexture(outBuffer),
+                      let cmd = self.queue.makeCommandBuffer(),
+                      let enc = cmd.makeComputeCommandEncoder() else {
+                    cont.resume(returning: nil); return
+                }
 
                 var params = CropParams(
                     cropOrigin: SIMD2(Float(cropPixelRect.minX / sourceSize.width),
@@ -83,28 +94,19 @@ final class ReframePipeline {
                 enc.setTexture(outTex, index: 2)
                 enc.setBytes(&params, length: MemoryLayout<CropParams>.stride, index: 0)
 
-        enc.setComputePipelineState(pipelineState)
-        enc.setTexture(luma, index: 0)
-        enc.setTexture(chroma, index: 1)
-        enc.setTexture(outTex, index: 2)
-        enc.setBytes(&params, length: MemoryLayout<CropParams>.stride, index: 0)
+                let w = self.pipelineState.threadExecutionWidth
+                let h = max(1, self.pipelineState.maxTotalThreadsPerThreadgroup / w)
+                let grid = MTLSize(width: outTex.width, height: outTex.height, depth: 1)
+                enc.dispatchThreads(grid, threadsPerThreadgroup: MTLSize(width: w, height: h, depth: 1))
+                enc.endEncoding()
 
-        let w = pipelineState.threadExecutionWidth
-        let h = max(1, pipelineState.maxTotalThreadsPerThreadgroup / w)
-        let grid = MTLSize(width: outTex.width, height: outTex.height, depth: 1)
-        enc.dispatchThreads(grid, threadsPerThreadgroup: MTLSize(width: w, height: h, depth: 1))
-        enc.endEncoding()
-
-        // Suspend until the GPU finishes instead of blocking the thread. The completed-handler
-        // closure captures only the (Sendable) continuation; the non-Sendable texture/buffer are
-        // returned after the await, so nothing crosses isolation.
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            cmd.addCompletedHandler { _ in continuation.resume() }
-            cmd.commit()
+                // Resume only when the GPU signals done — no CPU spin, no main-thread stall.
+                // Build the @unchecked Sendable frame first so the @Sendable handler captures only it.
+                let frame = RenderedFrame(texture: outTex, pixelBuffer: outBuffer)
+                cmd.addCompletedHandler { _ in cont.resume(returning: frame) }
+                cmd.commit()
+            }
         }
-
-        return RenderedFrame(texture: outTex, pixelBuffer: outBuffer)
-
     }
 
     private func makeTexture(_ pixelBuffer: CVPixelBuffer, plane: Int, format: MTLPixelFormat) -> MTLTexture? {
