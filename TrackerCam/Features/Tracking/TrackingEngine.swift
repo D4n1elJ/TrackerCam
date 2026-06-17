@@ -20,6 +20,8 @@ actor TrackingEngine {
         var confidence: Double
         var presentationTime: CMTime
         var sessionGeneration: UInt64
+        var visionFailureCount: Int
+        var lastVisionErrorDescription: String?
     }
 
     private var stateMachine: TrackingStateMachine
@@ -33,6 +35,8 @@ actor TrackingEngine {
     private var sequenceHandler = VNSequenceRequestHandler()
     private var trackingRequest: VNTrackObjectRequest?
     private var trackingLevel: VNRequestTrackingLevel = .accurate
+    private var visionFailureCount = 0
+    private var lastVisionErrorDescription: String?
 
     init(settings: TrackerSettings) {
         self.settings = settings
@@ -52,6 +56,8 @@ actor TrackingEngine {
     func clearTarget() {
         currentSeed = nil
         trackingRequest = nil
+        visionFailureCount = 0
+        lastVisionErrorDescription = nil
         stateMachine.reset()
         kalman = KalmanFilter2D(
             processNoise: Self.processNoise(for: settings.smoothingStrength),
@@ -89,6 +95,7 @@ actor TrackingEngine {
 
         var confidence = 0.0
         var subjectPixel: TCRect? = currentSeed
+        var frameVisionError: String?
 
         // Frame-to-frame tracking via Vision (established API).
         let desiredLevel: VNRequestTrackingLevel = fast ? .fast : .accurate
@@ -103,12 +110,20 @@ actor TrackingEngine {
                 trackingLevel = desiredLevel
             }
             if let req = trackingRequest {
-                try? sequenceHandler.perform([req], on: pixelBuffer)
-                if let obs = req.results?.first as? VNDetectedObjectObservation {
-                    let pixel = VisionGeometry.pixelRect(fromNormalized: TCRect(obs.boundingBox), imageSize: sourceSize)
-                    subjectPixel = pixel
-                    confidence = max(confidence, Double(obs.confidence))
-                    currentSeed = pixel
+                do {
+                    try sequenceHandler.perform([req], on: pixelBuffer)
+                    if let obs = req.results?.first as? VNDetectedObjectObservation {
+                        let pixel = VisionGeometry.pixelRect(fromNormalized: TCRect(obs.boundingBox), imageSize: sourceSize)
+                        subjectPixel = pixel
+                        confidence = max(confidence, Double(obs.confidence))
+                        currentSeed = pixel
+                        lastVisionErrorDescription = nil
+                    }
+                } catch {
+                    visionFailureCount += 1
+                    frameVisionError = error.localizedDescription
+                    lastVisionErrorDescription = frameVisionError
+                    trackingRequest = nil
                 }
             }
         }
@@ -127,7 +142,9 @@ actor TrackingEngine {
             velocity: kalman.velocity,
             confidence: confidence,
             presentationTime: t,
-            sessionGeneration: context.sessionGeneration
+            sessionGeneration: context.sessionGeneration,
+            visionFailureCount: visionFailureCount,
+            lastVisionErrorDescription: frameVisionError ?? lastVisionErrorDescription
         )
     }
 

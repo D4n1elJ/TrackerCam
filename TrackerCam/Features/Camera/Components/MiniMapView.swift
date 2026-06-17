@@ -23,6 +23,6 @@ struct MiniMapView: View {
             }
         }
         .frame(width: width, height: height)
-        .accessibilityLabel("Crop position within full frame")
+        .accessibilityHidden(true)
     }
 }

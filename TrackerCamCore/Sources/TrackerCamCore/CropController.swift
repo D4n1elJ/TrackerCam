@@ -11,7 +11,7 @@ public struct CropController: Sendable {
     private let maxZoomInRate: Double         // fractional crop-size shrink per second
     private let zoomInHysteresisBand: Double  // crop must shrink past this fraction to zoom in
     private let zoomInHoldSeconds: Double     // ...and stay there this long before zooming in
-    private let minCropFraction: Double       // floor on crop size as a fraction of the source
+    public var minCropFraction: Double        // floor on crop size as a fraction of the source
 
     private var currentCenter: TCPoint = .zero
     private var currentSize: TCSize = .zero

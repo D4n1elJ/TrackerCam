@@ -36,6 +36,7 @@ struct OverlayView: View {
             }
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
         .animation(.easeOut(duration: 0.12), value: subjectRect)
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import TrackerCamCore
 
 /// Main recording screen (plan §12 UX). Controls optimized for a right-hand landscape grip.
@@ -26,6 +27,14 @@ struct CameraView: View {
                                 x: location.x / geo.size.width,
                                 y: location.y / geo.size.height))
                         }
+                        .accessibilityLabel("Camera preview")
+                        .accessibilityValue(viewModel.trackingState.label)
+                        .accessibilityAction(named: Text("Refocus tracking")) {
+                            viewModel.refocus()
+                        }
+                        .accessibilityAction(named: Text("Release target")) {
+                            viewModel.clearTarget()
+                        }
 
                     if showGrid { GridOverlayView() }
 
@@ -46,13 +55,18 @@ struct CameraView: View {
                         .background(.red, in: Capsule())
                         .foregroundStyle(.white)
                         .padding(.top, 90)
+                        .accessibilityAddTraits(.updatesFrequently)
                 }
             }
             .overlay(alignment: .topTrailing) {
                 if showDebugHUD && !viewModel.permissionDenied {
                     DebugHUDView(fps: viewModel.fps, state: viewModel.trackingState,
                                  confidence: viewModel.confidence, thermal: viewModel.thermalLevelText,
-                                 config: viewModel.effectiveConfigSummary)
+                                 config: viewModel.effectiveConfigSummary,
+                                 visionFailures: viewModel.visionFailureCount,
+                                 visionError: viewModel.lastVisionErrorDescription,
+                                 detectionMs: viewModel.detectionMs,
+                                 detectionInterval: viewModel.effectiveDetectionInterval)
                         .padding(.top, 56).padding(.trailing, 12)
                 }
             }
@@ -90,6 +104,7 @@ struct CameraView: View {
                 Text(viewModel.effectiveConfigSummary)
                     .font(.caption2.monospaced())
                     .foregroundStyle(.white.opacity(0.7))
+                    .accessibilityAddTraits(.updatesFrequently)
             }
             .padding()
 
@@ -158,11 +173,24 @@ struct CameraView: View {
     private var statusBadge: some View {
         HStack(spacing: 6) {
             Circle().fill(statusColor).frame(width: 10, height: 10)
-            Text(viewModel.trackingState.label).font(.caption.weight(.semibold))
+            Text(statusLabel).font(.caption.weight(.semibold))
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(.ultraThinMaterial, in: Capsule())
         .foregroundStyle(.white)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var statusLabel: String {
+        if viewModel.trackingState == .idle {
+            switch viewModel.settingsStore.settings.acquisitionMode {
+            case .tap: return "Tap to track"
+            case .auto: return "Auto acquire"
+            case .autoRefocus: return "Auto/refocus"
+            }
+        }
+        return viewModel.trackingState.label
     }
 
     private var statusColor: Color {
@@ -206,6 +234,7 @@ private struct RecordButton: View {
         VStack(spacing: 4) {
             if isRecording {
                 Text(timeString).font(.caption.monospacedDigit()).foregroundStyle(.white)
+                    .accessibilityAddTraits(.updatesFrequently)
             }
             Button(action: action) {
                 ZStack {
@@ -230,10 +259,16 @@ private struct PermissionDeniedView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "camera.fill").font(.largeTitle)
-            Text("Camera & microphone access required")
+            Text("Camera access required")
                 .multilineTextAlignment(.center)
             Text("Enable access in Settings to use TrackerCam.")
                 .font(.caption).foregroundStyle(.secondary)
+            Button("Open Settings") {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 8)
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
     @AppStorage("trackercam.showGrid") private var showGrid = false
     @AppStorage("trackercam.previewAspectFill") private var previewAspectFill = true
+    private let cameraCapabilities = CameraService.discoverCapabilities()
 
     var body: some View {
         @Bindable var store = store
@@ -37,6 +38,7 @@ struct SettingsView: View {
                     Toggle("Dynamic zoom", isOn: $store.settings.dynamicZoomEnabled)
                     slider("Subject height", $store.settings.targetSubjectHeight, 0.12...0.55)
                     slider("Padding", $store.settings.subjectPadding, 0.10...0.35)
+                    slider("Minimum scene", $store.settings.minCropFraction, 0.25...0.90)
                     slider("Lead", $store.settings.compositionLeadFraction, 0.0...0.20)
                     Toggle("Mini-map", isOn: $store.settings.showMiniMap)
                 }
@@ -47,11 +49,14 @@ struct SettingsView: View {
                         Text("4K full-frame").tag(OutputResolution.full4K)
                     }
                     Picker("Frame rate", selection: $store.settings.frameRate) {
-                        Text("30").tag(FrameRatePreset.fps30)
-                        Text("60 (preferred)").tag(FrameRatePreset.preferred60)
-                        Text("100 (experimental)").tag(FrameRatePreset.experimental100)
-                        Text("120 (experimental)").tag(FrameRatePreset.experimental120)
+                        frameRateOption("30", .fps30)
+                        frameRateOption("60 (preferred)", .preferred60)
+                        frameRateOption("100 (experimental)", .experimental100)
+                        frameRateOption("120 (experimental)", .experimental120)
                     }
+                    Text(cameraCapabilities.summary)
+                        .font(.caption)
+                        .foregroundStyle(cameraCapabilities.supports4K60 ? Color.secondary : Color.orange)
                 }
 
                 Section("Guidance") {
@@ -89,6 +94,24 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .onAppear { clampUnsupportedFrameRate(store: store) }
+            .onChange(of: store.settings.frameRate) { _, newValue in
+                if !cameraCapabilities.supports(newValue) {
+                    store.settings.frameRate = cameraCapabilities.bestAvailablePreset
+                }
+            }
+        }
+    }
+
+    private func frameRateOption(_ title: String, _ preset: FrameRatePreset) -> some View {
+        Text(cameraCapabilities.supports(preset) ? title : "\(title) unavailable")
+            .tag(preset)
+            .disabled(!cameraCapabilities.supports(preset))
+    }
+
+    private func clampUnsupportedFrameRate(store: SettingsStore) {
+        if !cameraCapabilities.supports(store.settings.frameRate) {
+            store.settings.frameRate = cameraCapabilities.bestAvailablePreset
         }
     }
 

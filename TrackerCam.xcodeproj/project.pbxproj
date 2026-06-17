@@ -26,6 +26,7 @@
 		9D5396E5C6B1CBF1D0A4ABAF /* GridOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 811D7C6117E9354DB2784D6F /* GridOverlayView.swift */; };
 		B02EF94B3E57052E70788B51 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D906B993FB652152809EFA1C /* Assets.xcassets */; };
 		B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880FA74AA118DDADEE66C407 /* ReframePipeline.swift */; };
+		B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */; };
 		C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */; };
 		CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */; };
 		CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */; };
@@ -61,6 +62,7 @@
 		A74883230443D7FDBA4794DC /* OverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayView.swift; sourceTree = "<group>"; };
 		A9FF827FE583EA6811CF4F0B /* RecordingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingsView.swift; sourceTree = "<group>"; };
 		CA73B230E3F8BD0135FE6ABF /* CropShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CropShader.metal; sourceTree = "<group>"; };
+		D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropMetadataStreamWriter.swift; sourceTree = "<group>"; };
 		D906B993FB652152809EFA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugHUDView.swift; sourceTree = "<group>"; };
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 		29C5A0ECAEA8F1424F52EE3C /* Recording */ = {
 			isa = PBXGroup;
 			children = (
+				D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */,
 				E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */,
 				661010AE9037A80E2C768216 /* RecordingStore.swift */,
 				A9FF827FE583EA6811CF4F0B /* RecordingsView.swift */,
@@ -325,6 +328,7 @@
 				FBB97D9C7659CEEA9AD9EB16 /* CameraService.swift in Sources */,
 				4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */,
 				40A107DA7A2E457639E7D950 /* CameraViewModel.swift in Sources */,
+				B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */,
 				9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */,
 				C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */,
 				5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */,

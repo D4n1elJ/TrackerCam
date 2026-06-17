@@ -8,6 +8,10 @@ import TrackerCamCore
 /// IMPORTANT (plan §5 / §17 Phase 0): the exact format + pixel format + stabilization + color space
 /// combination must be validated on physical hardware before a capture mode is exposed in the UI.
 /// This service picks a best-effort 4K SDR configuration and reports the *effective* result.
+///
+/// `@unchecked Sendable` contract: AVFoundation session/device/connection state is mutable and
+/// non-Sendable, so every access is serialized through `sessionQueue` or `captureQueue`; the main
+/// actor only calls async wrappers or posts fire-and-forget queue work.
 final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
 
     enum CameraError: Error {
@@ -23,6 +27,40 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         var stabilizationMode: AVCaptureVideoStabilizationMode
         var colorSpace: AVCaptureColorSpace
         var isHDR: Bool
+    }
+
+    /// Runtime capability snapshot for Settings and diagnostics. This is device/format driven rather
+    /// than model-name driven, so it works for iPhone 17 Pro, 16 Pro, and future Pro hardware.
+    struct CapabilityReport: Sendable {
+        var cameraName: String
+        var max4KFrameRate: Double
+        var supports4K30: Bool
+        var supports4K60: Bool
+        var supports4K100: Bool
+        var supports4K120: Bool
+
+        var bestAvailablePreset: FrameRatePreset {
+            if supports4K120 { return .experimental120 }
+            if supports4K100 { return .experimental100 }
+            if supports4K60 { return .preferred60 }
+            return .fps30
+        }
+
+        var summary: String {
+            guard max4KFrameRate > 0 else { return "No back 4K camera detected" }
+            let fps = Int(max4KFrameRate.rounded(.down))
+            let readiness = supports4K60 ? "MVP ready" : "below MVP target"
+            return "\(cameraName): 4K up to \(fps) fps · \(readiness)"
+        }
+
+        func supports(_ preset: FrameRatePreset) -> Bool {
+            switch preset {
+            case .fps30: return supports4K30
+            case .preferred60: return supports4K60
+            case .experimental100: return supports4K100
+            case .experimental120: return supports4K120
+            }
+        }
     }
 
     let session = AVCaptureSession()
@@ -90,10 +128,28 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     // MARK: - Authorization
 
+    static func discoverCapabilities() -> CapabilityReport {
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+            return CapabilityReport(cameraName: "Back camera", max4KFrameRate: 0,
+                                    supports4K30: false, supports4K60: false,
+                                    supports4K100: false, supports4K120: false)
+        }
+        let max4K = device.formats
+            .filter(is4KYUVFormat)
+            .flatMap(\.videoSupportedFrameRateRanges)
+            .map(\.maxFrameRate)
+            .max() ?? 0
+        return CapabilityReport(
+            cameraName: device.localizedName,
+            max4KFrameRate: max4K,
+            supports4K30: max4K + 0.01 >= 30,
+            supports4K60: max4K + 0.01 >= 60,
+            supports4K100: max4K + 0.01 >= 100,
+            supports4K120: max4K + 0.01 >= 120)
+    }
+
     static func requestAccess() async -> Bool {
-        let cam = await AVCaptureDevice.requestAccess(for: .video)
-        let mic = await AVCaptureDevice.requestAccess(for: .audio)
-        return cam && mic
+        await AVCaptureDevice.requestAccess(for: .video)
     }
 
     // MARK: - Configuration
@@ -231,13 +287,7 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private static func best4KFormat(for device: AVCaptureDevice, frameRate: FrameRatePreset) -> AVCaptureDevice.Format? {
         let wanted = targetFPSForSelection(frameRate)
         let formats = device.formats.filter { f in
-            let d = CMVideoFormatDescriptionGetDimensions(f.formatDescription)
-            let is4K = d.width >= 3840 && d.height >= 2160
-            let subtype = CMFormatDescriptionGetMediaSubType(f.formatDescription)
-            let isYUV = subtype == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-                || subtype == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-            let supportsFPS = f.videoSupportedFrameRateRanges.contains { $0.maxFrameRate + 0.01 >= Double(wanted) }
-            return is4K && isYUV && supportsFPS
+            is4KYUVFormat(f) && f.videoSupportedFrameRateRanges.contains { $0.maxFrameRate + 0.01 >= Double(wanted) }
         }
         // Prefer formats that advertise SDR (sRGB) support and are not binned.
         return formats.sorted { a, b in
@@ -246,6 +296,15 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             if aSDR != bSDR { return aSDR && !bSDR }
             return !a.isVideoBinned && b.isVideoBinned
         }.first
+    }
+
+    private static func is4KYUVFormat(_ format: AVCaptureDevice.Format) -> Bool {
+        let d = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+        let is4K = d.width >= 3840 && d.height >= 2160
+        let subtype = CMFormatDescriptionGetMediaSubType(format.formatDescription)
+        let isYUV = subtype == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            || subtype == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+        return is4K && isYUV
     }
 
     private static func targetFPSForSelection(_ preset: FrameRatePreset) -> Int {

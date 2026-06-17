@@ -20,8 +20,6 @@
     <!-- Permissions (plan §5). -->
     <key>NSCameraUsageDescription</key>
     <string>TrackerCam uses the camera to record and automatically frame your subject.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>TrackerCam records audio together with your video.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>TrackerCam can save your recordings to your photo library.</string>
 

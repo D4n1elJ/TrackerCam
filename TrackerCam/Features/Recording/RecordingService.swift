@@ -10,6 +10,13 @@ import CoreVideo
 final class RecordingService {
     enum State { case idle, recording, finishing }
 
+    struct FinishResult {
+        var url: URL?
+        var droppedFrames: Int
+        var appendFailures: Int
+        var writerErrorDescription: String?
+    }
+
     private(set) var state: State = .idle
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
@@ -19,6 +26,8 @@ final class RecordingService {
 
     private let outputSize: CGSize
     private var droppedFrames = 0
+    private var appendFailures = 0
+    private var writerErrorDescription: String?
 
     init(outputSize: CGSize) {
         self.outputSize = outputSize
@@ -61,6 +70,8 @@ final class RecordingService {
         self.outputURL = url
         self.sessionStarted = false
         self.droppedFrames = 0
+        self.appendFailures = 0
+        self.writerErrorDescription = nil
         self.state = .recording
     }
 
@@ -73,18 +84,24 @@ final class RecordingService {
             sessionStarted = true
         }
         guard input.isReadyForMoreMediaData else { droppedFrames += 1; return }
-        adaptor.append(pixelBuffer, withPresentationTime: presentationTime)
+        if !adaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
+            appendFailures += 1
+            writerErrorDescription = writer.error?.localizedDescription ?? "Writer append failed with status \(writer.status.rawValue)"
+        }
     }
 
-    func finish() async -> (url: URL?, dropped: Int) {
-        guard state == .recording, let writer, let input = videoInput else { return (nil, droppedFrames) }
+    func finish() async -> FinishResult {
+        guard state == .recording, let writer, let input = videoInput else {
+            return FinishResult(url: nil, droppedFrames: droppedFrames, appendFailures: appendFailures, writerErrorDescription: writerErrorDescription)
+        }
         state = .finishing
         input.markAsFinished()
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             writer.finishWriting { cont.resume() }
         }
+        let errorDescription = writer.error?.localizedDescription ?? writerErrorDescription
         let result: URL? = writer.status == .completed ? outputURL : nil
         state = .idle
-        return (result, droppedFrames)
+        return FinishResult(url: result, droppedFrames: droppedFrames, appendFailures: appendFailures, writerErrorDescription: errorDescription)
     }
 }

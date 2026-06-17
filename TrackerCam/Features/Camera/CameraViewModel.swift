@@ -29,6 +29,10 @@ final class CameraViewModel {
     private(set) var cropInSourceRect: CGRect?
     private(set) var confidence: Double = 0
     private(set) var fps: Double = 0
+    private(set) var visionFailureCount = 0
+    private(set) var lastVisionErrorDescription: String?
+    private(set) var detectionMs: Double = 0
+    private(set) var effectiveDetectionInterval: Double = 0
     /// Seconds remaining in the low-storage countdown, nil when not counting down (plan §14).
     private(set) var storageCountdown: Int?
     private(set) var batteryLow = false  // < 20% (plan §15)
@@ -52,6 +56,11 @@ final class CameraViewModel {
     private var analysisScaler: ReframePipeline?
     private var analysisDims: CGSize = .zero
     private var detectionInFlight = false
+    private var detectionTask: Task<Void, Never>?
+    private var targetTask: Task<Void, Never>?
+    private var stopRecordingTask: Task<Void, Never>?
+    private var interruptionTask: Task<Void, Never>?
+    private var lifecycleGeneration: UInt64 = 0
     private var recording: RecordingService?
     private let thermal = ThermalManager()
 
@@ -78,9 +87,11 @@ final class CameraViewModel {
     private var lastPerfLogT: Double = 0
     private var trackMsEMA: Double = 0
     private var reframeMsEMA: Double = 0
+    private var detectionMsEMA: Double = 0
     private var cropController = CropController()
     private let cropPlanner = CropPlanner()
-    private var cropLog = CropMetadataLog()
+    private var cropMetadataWriter: CropMetadataStreamWriter?
+    private var cropMetadataTempURL: URL?
     private var cropLogActive = false
     private let interruptionPolicy = InterruptionPolicy()
     private var pendingContinuation = false
@@ -108,8 +119,15 @@ final class CameraViewModel {
     // MARK: - Lifecycle
 
     func onAppear() async {
+        lifecycleGeneration &+= 1
+        let generation = lifecycleGeneration
         guard await CameraService.requestAccess() else { permissionDenied = true; return }
         UIDevice.current.isBatteryMonitoringEnabled = true
+
+        let capabilities = CameraService.discoverCapabilities()
+        if !capabilities.supports(settingsStore.settings.frameRate) {
+            settingsStore.settings.frameRate = capabilities.bestAvailablePreset
+        }
 
         let outputSize = Self.outputSize(for: settingsStore.settings.aspectRatio)
         reframe = ReframePipeline(outputSize: outputSize)
@@ -136,6 +154,7 @@ final class CameraViewModel {
         consumerTask = Task { [weak self] in
             guard let self else { return }
             for await payload in stream {
+                guard self.isCurrentGeneration(generation) else { break }
                 await self.handle(payload)
             }
         }
@@ -143,7 +162,7 @@ final class CameraViewModel {
         do {
             try await camera.configure(settings: settingsStore.settings)
             if let e = camera.effective {
-                effectiveConfigSummary = "\(e.dimensions.width)×\(e.dimensions.height) @\(Int(e.frameRate)) · \(e.isHDR ? "HDR" : "SDR")"
+                effectiveConfigSummary = "\(e.dimensions.width)×\(e.dimensions.height) @\(Int(e.frameRate)) · \(e.isHDR ? "HDR" : "SDR") · \(capabilities.supports4K60 ? "MVP ready" : "limited")"
             }
             camera.startRunning()
         } catch {
@@ -152,8 +171,18 @@ final class CameraViewModel {
     }
 
     func onDisappear() {
+        lifecycleGeneration &+= 1
         camera.stopRunning()
         consumerTask?.cancel()
+        detectionTask?.cancel()
+        targetTask?.cancel()
+        stopRecordingTask?.cancel()
+        interruptionTask?.cancel()
+        cropMetadataWriter?.close()
+        if let tempSidecar = cropMetadataTempURL { try? FileManager.default.removeItem(at: tempSidecar) }
+        cropMetadataWriter = nil
+        cropMetadataTempURL = nil
+        cropLogActive = false
         streamContinuation?.finish()
     }
 
@@ -175,21 +204,24 @@ final class CameraViewModel {
                           size: TCSize(width: source.width * 0.3, height: source.height * 0.3))
         }
         cropController.reset()   // snap to the new target rather than slewing from the old crop
-        Task { await trackingEngine.seed(pixelRect: seed) }
+        targetTask?.cancel()
+        targetTask = Task { await trackingEngine.seed(pixelRect: seed) }
     }
 
     /// Release the current target (double-tap "let go") and ease back to a wide centered crop.
     func clearTarget() {
         cropController.reset()
         lostSince = nil
-        Task { await trackingEngine.clearTarget() }
+        targetTask?.cancel()
+        targetTask = Task { await trackingEngine.clearTarget() }
     }
 
     func toggleRecording() {
         if isRecording {
             userRequestedStop = true
             pendingContinuation = false
-            Task { await stopRecording() }
+            stopRecordingTask?.cancel()
+            stopRecordingTask = Task { await stopRecording() }
         } else {
             userRequestedStop = false
             startRecording()
@@ -207,11 +239,13 @@ final class CameraViewModel {
         case .finalizeAndContinue:
             guard isRecording else { return }
             pendingContinuation = true   // resume into a new segment when the interruption ends
-            Task { await stopRecording(continuation: true) }
+            interruptionTask?.cancel()
+            interruptionTask = Task { await stopRecording(continuation: true) }
         case .stopAndFinalize:
             guard isRecording else { return }
             pendingContinuation = false
-            Task { await stopRecording() }
+            stopRecordingTask?.cancel()
+            stopRecordingTask = Task { await stopRecording() }
         }
     }
 
@@ -236,8 +270,16 @@ final class CameraViewModel {
             lowSpaceSince = nil
             storageCountdown = nil
             camera.setRotationLocked(true)   // lock orientation for the clip (plan §9)
-            cropLog = CropMetadataLog()
             cropLogActive = settingsStore.settings.exportCropMetadata   // sidecar opt-in (§14)
+            cropMetadataWriter?.close()
+            cropMetadataWriter = nil
+            cropMetadataTempURL = nil
+            if cropLogActive {
+                let sidecarURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("TrackerCam_\(Int(Date().timeIntervalSince1970))_crop.ndjson")
+                cropMetadataTempURL = sidecarURL
+                cropMetadataWriter = try? CropMetadataStreamWriter(url: sidecarURL)
+            }
         } catch {
             effectiveConfigSummary = "Recorder failed: \(error)"
         }
@@ -253,10 +295,14 @@ final class CameraViewModel {
             if lowSpaceSince != nil { lowSpaceSince = nil; storageCountdown = nil }
             return
         }
-        if lowSpaceSince == nil { lowSpaceSince = t }
+        if lowSpaceSince == nil {
+            lowSpaceSince = t
+            haptics.notificationOccurred(.warning)
+        }
         let remaining = 5.0 - (t - (lowSpaceSince ?? t))
         storageCountdown = max(0, Int(ceil(remaining)))
         if remaining <= 0 {
+            haptics.notificationOccurred(.error)
             await stopRecording()
             storageCountdown = nil
             effectiveConfigSummary = "Stopped — storage full"
@@ -274,13 +320,29 @@ final class CameraViewModel {
         return StoragePolicy.estimatedBitrateBytesPerSecond(width: Int(out.width), height: Int(out.height), fps: fps)
     }
 
+    private static func recordingHealthSummary(droppedFrames: Int, appendFailures: Int) -> String {
+        if droppedFrames == 0 && appendFailures == 0 { return "" }
+        var parts: [String] = []
+        if droppedFrames > 0 { parts.append("\(droppedFrames) dropped") }
+        if appendFailures > 0 { parts.append("\(appendFailures) write failed") }
+        return " (" + parts.joined(separator: ", ") + ")"
+    }
+
     private func stopRecording(continuation: Bool = false) async {
         guard let recording else { return }
         camera.setRotationLocked(false)   // allow rotation again after the clip
-        let (url, dropped) = await recording.finish()
+        let finish = await recording.finish()
         isRecording = false
         elapsed = 0
-        guard let url else { effectiveConfigSummary = "Save failed"; return }
+        guard let url = finish.url else {
+            cropMetadataWriter?.close()
+            if let tempSidecar = cropMetadataTempURL { try? FileManager.default.removeItem(at: tempSidecar) }
+            cropMetadataWriter = nil
+            cropMetadataTempURL = nil
+            cropLogActive = false
+            effectiveConfigSummary = finish.writerErrorDescription.map { "Save failed: \($0)" } ?? "Save failed"
+            return
+        }
         _ = continuation  // segment finalized; handleInterruptionEnded() will start the next one
 
         // Move temp file → app library / Photos per settings.saveDestination (plan §14).
@@ -290,18 +352,26 @@ final class CameraViewModel {
             tempURL: url, destination: s.saveDestination,
             mode: s.recordingMode == .trackedOnly ? "tracked" : "full",
             resolution: "\(Int(res.width))x\(Int(res.height))")
+        let recordingHealth = Self.recordingHealthSummary(droppedFrames: finish.droppedFrames, appendFailures: finish.appendFailures)
         switch (result.appURL != nil, result.savedToPhotos) {
-        case (true, true): effectiveConfigSummary = "Saved to app + Photos (\(dropped) dropped)"
-        case (true, false): effectiveConfigSummary = "Saved to app (\(dropped) dropped)"
-        case (false, true): effectiveConfigSummary = "Saved to Photos (\(dropped) dropped)"
-        case (false, false): effectiveConfigSummary = "Save failed"
+        case (true, true): effectiveConfigSummary = "Saved to app + Photos\(recordingHealth)"
+        case (true, false): effectiveConfigSummary = "Saved to app\(recordingHealth)"
+        case (false, true): effectiveConfigSummary = "Saved to Photos\(recordingHealth)"
+        case (false, false): effectiveConfigSummary = finish.writerErrorDescription.map { "Save failed: \($0)" } ?? "Save failed"
         }
 
-        // Write the crop-metadata sidecar next to the recording (§14). TODO: stream for long clips.
-        if cropLogActive, let appURL = result.appURL {
-            let sidecar = appURL.deletingPathExtension().appendingPathExtension("ndjson")
-            try? cropLog.ndjson().write(to: sidecar, atomically: true, encoding: .utf8)
+        cropMetadataWriter?.close()
+        if cropLogActive, let tempSidecar = cropMetadataTempURL {
+            if let appURL = result.appURL {
+                let sidecar = appURL.deletingPathExtension().appendingPathExtension("ndjson")
+                try? FileManager.default.removeItem(at: sidecar)
+                try? FileManager.default.moveItem(at: tempSidecar, to: sidecar)
+            } else {
+                try? FileManager.default.removeItem(at: tempSidecar)
+            }
         }
+        cropMetadataWriter = nil
+        cropMetadataTempURL = nil
         cropLogActive = false
     }
 
@@ -314,6 +384,7 @@ final class CameraViewModel {
 
         // Detector cadence (scaled by thermal pressure, plan §15).
         let interval = s.redetectionInterval * thermal.redetectionIntervalMultiplier
+        effectiveDetectionInterval = interval
         let redetect = (t - lastDetectAt) >= interval
         if redetect { lastDetectAt = t }
 
@@ -329,7 +400,8 @@ final class CameraViewModel {
         // Coordinates are normalized, so reduced resolution is transparent to the crop math.
         var visionBuffer = payload.pixelBuffer
         let active = trackingState != .idle
-        if active {
+        let autoAcquire = s.acquisitionMode != .tap
+        if active || autoAcquire {
             let srcDims = ctx.sourceDimensions
             if analysisScaler == nil || analysisDims != srcDims {
                 analysisDims = srcDims
@@ -344,19 +416,29 @@ final class CameraViewModel {
 
         // Detector cadence: run decoupled on the owned downscaled buffer so the inference spike never
         // blocks per-frame tracking (latest-wins; at most one in flight, plan §6 backpressure).
-        if redetect, active, detection.isModelLoaded, !detectionInFlight {
+        if redetect, (active || autoAcquire), detection.isModelLoaded, !detectionInFlight {
             detectionInFlight = true
             let detector = detection
             let dims = sourceSize
             let thr = s.confidenceThreshold
-            Task { [weak self, detector, visionPayload] in
+            let generation = lifecycleGeneration
+            let acquisitionMode = s.acquisitionMode
+            detectionTask = Task { [weak self, detector, visionPayload] in
+                let detectT0 = CACurrentMediaTime()
                 let det = try? detector.detectCompoundTarget(in: visionPayload.pixelBuffer,
                                                              sourceSize: dims, confidenceThreshold: thr)
-                if let self {
-                    if let det {
+                let detectMs = (CACurrentMediaTime() - detectT0) * 1000
+                guard let self else { return }
+                defer { Task { @MainActor in self.clearDetectionInFlight() } }
+                guard self.isCurrentGeneration(generation) else { return }
+                self.recordDetectionLatency(detectMs)
+                if let det {
+                    if acquisitionMode == .tap {
+                        await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                    } else {
+                        await self.trackingEngine.seed(pixelRect: det.pixelRect)
                         await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
                     }
-                    await self.clearDetectionInFlight()
                 }
             }
         }
@@ -406,6 +488,7 @@ final class CameraViewModel {
         let dt = lastFrameSeconds.map { max(1.0 / 240, t - $0) } ?? 1.0 / 60
         lastFrameSeconds = t
         smoothedFPS = smoothedFPS == 0 ? 1.0 / dt : smoothedFPS * 0.9 + (1.0 / dt) * 0.1
+        cropController.minCropFraction = s.minCropFraction
         let crop = cropController.update(dt: dt, desiredCenter: planned.center,
                                          desiredSize: planned.size, source: source)
 
@@ -429,7 +512,7 @@ final class CameraViewModel {
             recording?.append(pixelBuffer: rendered.pixelBuffer, presentationTime: ctx.presentationTime)
             if cropLogActive {
                 let pts = ctx.presentationTime
-                cropLog.append(CropFrameRecord(
+                cropMetadataWriter?.append(CropFrameRecord(
                     sequence: Int(ctx.sequenceNumber), ptsValue: pts.value, ptsTimescale: pts.timescale,
                     crop: crop, subject: result.subjectPixelRect, confidence: result.confidence,
                     state: result.state.rawValue, predicted: false))
@@ -469,6 +552,9 @@ final class CameraViewModel {
                                       width: crop.width / source.width, height: crop.height / source.height)
             confidence = result.confidence
             fps = smoothedFPS
+            visionFailureCount = result.visionFailureCount
+            lastVisionErrorDescription = result.lastVisionErrorDescription
+            detectionMs = detectionMsEMA
             let level = UIDevice.current.batteryLevel
             batteryLow = level >= 0 && level < 0.2
             if isRecording, recordStartPTS.isValid {
@@ -481,6 +567,14 @@ final class CameraViewModel {
 
     /// Clears the decoupled-detection in-flight flag (called back from the detection task).
     private func clearDetectionInFlight() { detectionInFlight = false }
+
+    private func recordDetectionLatency(_ ms: Double) {
+        detectionMsEMA = detectionMsEMA == 0 ? ms : detectionMsEMA * 0.9 + ms * 0.1
+    }
+
+    private func isCurrentGeneration(_ generation: UInt64) -> Bool {
+        lifecycleGeneration == generation && !Task.isCancelled
+    }
 
     /// Analysis-buffer size: source aspect preserved, scaled so the long side is ~1280px. Keeping the
     /// source aspect avoids anisotropic distortion of the tracked content.

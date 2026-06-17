@@ -172,7 +172,7 @@ The following are confirmed hardware/product capabilities from Apple's published
 | Codecs/formats | HEVC, H.264, ProRes, ProRes RAW; Apple Log 2; ACES support | HEVC SDR is MVP; professional capture formats are deferred |
 | ProRes | Up to 4K/120 with external recording | Relevant only to a future external-storage/pro workflow |
 | Dual Capture | Up to 4K Dolby Vision at 30 fps | Does not imply two independently configurable rear-camera video data outputs; treat as a separate future experiment |
-| Audio | Four studio-quality microphones, Spatial Audio/stereo recording, wind-noise reduction | MVP records AAC stereo from AVFoundation; test wind handling in equestrian conditions |
+| Audio | Four studio-quality microphones, Spatial Audio/stereo recording, wind-noise reduction | Deferred for MVP; current app records video-only until an audio capture/writer path is implemented and field-tested |
 | Display | 6.3-inch OLED, ProMotion up to 120 Hz, up to 3000 nits peak outdoor brightness | High-refresh, outdoor-visible preview; app should reduce display refresh/brightness expectations under thermal pressure |
 | Storage | 256GB, 512GB, or 1TB on Pro; Pro Max also offers 2TB | Recording-time estimates must use actual free capacity, not model capacity |
 | I/O | USB-C with USB 3 up to 10 Gb/s and DisplayPort | Future external recording/export and field-monitor workflows |
@@ -233,7 +233,7 @@ The settings UI must be capability-driven:
 ### Permissions
 
 - **Camera** — required
-- **Microphone** — required for video audio
+- **Microphone** — deferred; do not request until audio capture is implemented
 - **Photo Library (add only)** — optional, for saving recordings
 
 Background camera recording is explicitly unsupported. If the app leaves the foreground, preserve the current file and follow the interruption policy in §14.
@@ -859,7 +859,7 @@ Small inset showing the full 4K field of view with a rectangle indicating the cu
 
 ### Onboarding (first launch)
 
-1. Grant camera + microphone permissions.
+1. Grant camera permission.
 2. Explain manual recording, automatic tracking, tap/refocus override, and arrows as camera pan guidance.
 3. Start with the `Training Review` preset at 1080p/60 when validated and available, otherwise 1080p/30.
 

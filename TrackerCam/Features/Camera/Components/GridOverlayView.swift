@@ -16,5 +16,6 @@ struct GridOverlayView: View {
             .stroke(.white.opacity(0.25), lineWidth: 0.5)
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
