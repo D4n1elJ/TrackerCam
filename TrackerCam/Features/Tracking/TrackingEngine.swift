@@ -57,6 +57,7 @@ actor TrackingEngine {
     func clearTarget() {
         currentSeed = nil
         trackingRequest = nil
+        sequenceHandler = VNSequenceRequestHandler()
         manualSeedTrustFrames = 0
         visionFailureCount = 0
         lastVisionErrorDescription = nil
@@ -72,6 +73,7 @@ actor TrackingEngine {
     func seed(pixelRect: TCRect) {
         currentSeed = pixelRect
         trackingRequest = nil          // re-seed Vision tracker on next frame
+        sequenceHandler = VNSequenceRequestHandler()
         manualSeedTrustFrames = 12     // user taps are intentional; let Vision establish its track.
         stateMachine.reset()
         stateMachine.startAcquisition(at: lastSeconds)
@@ -135,6 +137,7 @@ actor TrackingEngine {
                                 manualSeedTrustFrames = max(0, manualSeedTrustFrames - 1)
                             }
                             trackingRequest = nil
+                            sequenceHandler = VNSequenceRequestHandler()
                         }
                     }
                 } catch {
@@ -177,6 +180,7 @@ actor TrackingEngine {
         }
         currentSeed = pixelRect
         trackingRequest = nil
+        sequenceHandler = VNSequenceRequestHandler()
         manualSeedTrustFrames = 0
         if stateMachine.state != .idle {
             stateMachine.observe(confidence: confidence, at: lastSeconds)
@@ -200,22 +204,19 @@ actor TrackingEngine {
         let dx = rect.center.x - previous.center.x
         let dy = rect.center.y - previous.center.y
         let centerDistance = hypot(dx, dy)
-        let jumpLimit = max(previousDiagonal * (strict ? 1.25 : 2.25),
-                            sourceDiagonal * (strict ? 0.045 : 0.10))
+        let jumpLimit = max(previousDiagonal * (strict ? 4.0 : 2.25),
+                            sourceDiagonal * (strict ? 0.12 : 0.10))
         guard centerDistance <= jumpLimit else { return false }
 
         let widthRatio = rect.width / max(previous.width, 1)
         let heightRatio = rect.height / max(previous.height, 1)
-        let lowerBound = strict ? 0.45 : 0.30
-        let upperBound = strict ? 2.20 : 3.25
+        let lowerBound = strict ? 0.20 : 0.30
+        let upperBound = strict ? 5.00 : 3.25
         guard widthRatio >= lowerBound, widthRatio <= upperBound,
               heightRatio >= lowerBound, heightRatio <= upperBound else {
             return false
         }
 
-        if strict {
-            return rect.iou(previous.expanded(byFraction: 1.5)) > 0
-        }
         return true
     }
 
