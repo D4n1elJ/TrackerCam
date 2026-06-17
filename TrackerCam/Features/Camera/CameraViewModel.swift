@@ -407,7 +407,7 @@ final class CameraViewModel {
         // Coordinates are normalized, so reduced resolution is transparent to the crop math.
         var visionBuffer = payload.pixelBuffer
         let active = trackingState != .idle
-        let autoAcquire = s.acquisitionMode != .tap
+        let autoAcquire = s.acquisitionMode != .tap && detection.isModelLoaded
         if active || autoAcquire {
             let srcDims = ctx.sourceDimensions
             if analysisScaler == nil || analysisDims != srcDims {

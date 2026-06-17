@@ -11,6 +11,7 @@ struct CameraView: View {
     @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
     @AppStorage("trackercam.showGrid") private var showGrid = false
     @AppStorage("trackercam.previewAspectFill") private var previewAspectFill = true
+    private let detectorAvailable = DetectionService.isBundledModelAvailable
 
     var body: some View {
         GeometryReader { geo in
@@ -184,6 +185,7 @@ struct CameraView: View {
 
     private var statusLabel: String {
         if viewModel.trackingState == .idle {
+            guard detectorAvailable else { return "Tap to track" }
             switch viewModel.settingsStore.settings.acquisitionMode {
             case .tap: return "Tap to track"
             case .auto: return "Auto acquire"

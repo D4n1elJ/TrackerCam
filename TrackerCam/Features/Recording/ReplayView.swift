@@ -63,6 +63,10 @@ struct ReplayView: View {
                 Text(Self.timeString(currentTime))
                     .monospacedDigit()
                 Spacer()
+                ShareLink(item: url) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Share recording")
                 Toggle("Overlay", isOn: $showTrackingOverlay)
                     .labelsHidden()
                     .disabled(frames.isEmpty)

@@ -18,14 +18,22 @@ struct RecordingsView: View {
                 } else {
                     List {
                         ForEach(urls, id: \.self) { url in
-                            Button { playing = url } label: {
-                                HStack {
-                                    Image(systemName: "play.rectangle.fill").foregroundStyle(.tint)
-                                    VStack(alignment: .leading) {
-                                        Text(url.lastPathComponent).font(.subheadline).lineLimit(1)
-                                        Text(Self.modified(url)).font(.caption).foregroundStyle(.secondary)
+                            HStack {
+                                Button { playing = url } label: {
+                                    HStack {
+                                        Image(systemName: "play.rectangle.fill").foregroundStyle(.tint)
+                                        VStack(alignment: .leading) {
+                                            Text(url.lastPathComponent).font(.subheadline).lineLimit(1)
+                                            Text(Self.modified(url)).font(.caption).foregroundStyle(.secondary)
+                                        }
                                     }
                                 }
+                                Spacer()
+                                ShareLink(item: url) {
+                                    Image(systemName: "square.and.arrow.up")
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Share recording")
                             }
                         }
                         .onDelete { idx in

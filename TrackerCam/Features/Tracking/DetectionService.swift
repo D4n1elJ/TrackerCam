@@ -22,6 +22,10 @@ final class DetectionService: @unchecked Sendable {
     /// call by the caller, so reuse is safe and avoids a per-cadence request allocation.
     private let request: VNCoreMLRequest?
 
+    static var isBundledModelAvailable: Bool {
+        Bundle.main.url(forResource: "YOLO26n_horse", withExtension: "mlmodelc") != nil
+    }
+
     init() {
         // Lazily load the bundled model; nil until the .mlpackage is added (Phase 3).
         if let url = Bundle.main.url(forResource: "YOLO26n_horse", withExtension: "mlmodelc"),

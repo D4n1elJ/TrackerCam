@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage("trackercam.showGrid") private var showGrid = false
     @AppStorage("trackercam.previewAspectFill") private var previewAspectFill = true
     private let cameraCapabilities = CameraService.discoverCapabilities()
+    private let detectorAvailable = DetectionService.isBundledModelAvailable
 
     var body: some View {
         @Bindable var store = store
@@ -16,9 +17,14 @@ struct SettingsView: View {
             Form {
                 Section("Tracking") {
                     Picker("Acquisition", selection: $store.settings.acquisitionMode) {
-                        Text("Auto").tag(AcquisitionMode.auto)
+                        acquisitionOption("Auto", .auto)
                         Text("Tap").tag(AcquisitionMode.tap)
-                        Text("Auto + Refocus").tag(AcquisitionMode.autoRefocus)
+                        acquisitionOption("Auto + Refocus", .autoRefocus)
+                    }
+                    if !detectorAvailable {
+                        Text("Auto acquisition requires the bundled horse detection model. Tap-to-track remains available.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     slider("Re-detection (s)", $store.settings.redetectionInterval, 0.1...5.0)
                     slider("Lost timeout (s)", $store.settings.lostTrackTimeout, 0.1...3.0)
@@ -94,12 +100,30 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .onAppear { clampUnsupportedFrameRate(store: store) }
+            .onAppear {
+                clampUnsupportedAcquisitionMode(store: store)
+                clampUnsupportedFrameRate(store: store)
+            }
+            .onChange(of: store.settings.acquisitionMode) { _, _ in
+                clampUnsupportedAcquisitionMode(store: store)
+            }
             .onChange(of: store.settings.frameRate) { _, newValue in
                 if !cameraCapabilities.supports(newValue) {
                     store.settings.frameRate = cameraCapabilities.bestAvailablePreset
                 }
             }
+        }
+    }
+
+    private func acquisitionOption(_ title: String, _ mode: AcquisitionMode) -> some View {
+        Text(detectorAvailable ? title : "\(title) unavailable")
+            .tag(mode)
+            .disabled(!detectorAvailable)
+    }
+
+    private func clampUnsupportedAcquisitionMode(store: SettingsStore) {
+        if !detectorAvailable, store.settings.acquisitionMode != .tap {
+            store.settings.acquisitionMode = .tap
         }
     }
 

@@ -28,6 +28,7 @@ final class RecordingStore {
 
     func delete(_ url: URL) {
         try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("ndjson"))
     }
 
     /// - Parameters:
