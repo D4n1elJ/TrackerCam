@@ -232,7 +232,11 @@ final class CameraViewModel {
                 source: source
             )
             let visibleCrop = Self.cropPixels(fromNormalized: cropInSourceRect, source: source)
-            selectedSeedViewRect = Self.rectInCrop(seed, crop: visibleCrop)
+            let seedViewRect = Self.rectInCrop(seed, crop: visibleCrop)
+            selectedSeedViewRect = seedViewRect
+            subjectViewRect = seedViewRect
+            trackingState = .searching
+            confidence = 0
         } else {
             seed = TCRect(center: source.center,
                           size: TCSize(width: source.width * 0.3, height: source.height * 0.3))
@@ -248,6 +252,9 @@ final class CameraViewModel {
         cropController.reset()
         lostSince = nil
         selectedSeedViewRect = nil
+        subjectViewRect = nil
+        trackingState = .idle
+        confidence = 0
         targetTask?.cancel()
         targetTask = Task { await trackingEngine.clearTarget() }
     }
@@ -582,7 +589,14 @@ final class CameraViewModel {
         if t - lastUIPublishT >= 1.0 / 15 {
             lastUIPublishT = t
             trackingState = result.state
-            subjectViewRect = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
+            let trackedRect = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
+            if let trackedRect {
+                subjectViewRect = trackedRect
+            } else if result.state == .searching, let selectedSeedViewRect {
+                subjectViewRect = selectedSeedViewRect
+            } else if result.state == .idle {
+                subjectViewRect = nil
+            }
             if result.state != .searching { selectedSeedViewRect = nil }
             guidanceHint = hint
             cropInSourceRect = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
