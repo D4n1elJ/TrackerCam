@@ -18,6 +18,7 @@
 		4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */; };
 		530D9230A80D0176201BF46C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */; };
 		5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1075BAAE23507C186CDEE12E /* DetectionService.swift */; };
+		616D2DFDCCDEDBC49995089A /* MetricsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0170BB81D7A521A10733D9D /* MetricsService.swift */; };
 		61C20C6AEB426D9A9F42667D /* SidecarPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945DCC1F528C76BD80E3A8A3 /* SidecarPlayback.swift */; };
 		6C8229D2FC823CCBDC11CBA9 /* TrackerCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */; };
 		897E14C4BDCBC09860AABE0D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E5615BCE79D74FD8C4564D /* SettingsView.swift */; };
@@ -68,6 +69,7 @@
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
 		E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		F0170BB81D7A521A10733D9D /* MetricsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsService.swift; sourceTree = "<group>"; };
 		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -184,6 +186,14 @@
 			path = Shaders;
 			sourceTree = "<group>";
 		};
+		A36B18CEC25B8851F144EA98 /* Diagnostics */ = {
+			isa = PBXGroup;
+			children = (
+				F0170BB81D7A521A10733D9D /* MetricsService.swift */,
+			);
+			path = Diagnostics;
+			sourceTree = "<group>";
+		};
 		A6289B8D90B330B4DE9CCE09 /* Services */ = {
 			isa = PBXGroup;
 			children = (
@@ -214,6 +224,7 @@
 			isa = PBXGroup;
 			children = (
 				64482D4703F6C769A1BCA956 /* App */,
+				A36B18CEC25B8851F144EA98 /* Diagnostics */,
 				72CCD76D3EF3971BFBAF73B9 /* Features */,
 				B5D24774153B1898D939A874 /* Resources */,
 				A6289B8D90B330B4DE9CCE09 /* Services */,
@@ -336,6 +347,7 @@
 				4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */,
 				9D5396E5C6B1CBF1D0A4ABAF /* GridOverlayView.swift in Sources */,
 				F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */,
+				616D2DFDCCDEDBC49995089A /* MetricsService.swift in Sources */,
 				94BA686DC16052BD0FBA4AEB /* MiniMapView.swift in Sources */,
 				ED0B10E4891F3A208DEF8A11 /* OnboardingView.swift in Sources */,
 				147948DE666FFC70EA2A65A0 /* OverlayView.swift in Sources */,
