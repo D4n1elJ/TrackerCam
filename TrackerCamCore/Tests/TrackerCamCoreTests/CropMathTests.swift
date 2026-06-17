@@ -76,4 +76,33 @@ func runCropMathTests() {
     let hrFull = CropMath.headroom(crop: source, source: source)
     expectClose(hrFull.left, 0, tol: 1e-9, "no pan room left")
     expectClose(hrFull.right, 0, tol: 1e-9, "no pan room right")
+
+    // --- minSizeFraction: never crop into a close-up (plan §10 / improvements #36) ---
+    // A tight crop (a distant subject zoomed in) is grown so each dimension is at least the
+    // minimum fraction of the source, keeping the surrounding environment in frame.
+    let tight = CropMath.clampedCrop(center: TCPoint(x: 1920, y: 1080),
+                                     size: TCSize(width: 384, height: 216),   // 10% of source
+                                     source: source, minSizeFraction: 0.5)
+    expectClose(tight.width, 0.5 * source.width, tol: 1e-6, "min crop width = 50% source")
+    expectClose(tight.height, 0.5 * source.height, tol: 1e-6, "min crop height = 50% source")
+    expectClose(tight.width / tight.height, source.width / source.height, tol: 1e-9, "min keeps aspect")
+
+    // A crop already above the floor is unchanged by minSizeFraction.
+    let comfortable = CropMath.clampedCrop(center: TCPoint(x: 1920, y: 1080),
+                                           size: TCSize(width: 2880, height: 1620), // 75% of source
+                                           source: source, minSizeFraction: 0.5)
+    expectClose(comfortable.width, 2880, tol: 1e-6, "above floor unchanged (w)")
+    expectClose(comfortable.height, 1620, tol: 1e-6, "above floor unchanged (h)")
+
+    // The floor never grows a crop past what fits the source (capped at full source).
+    let cappedToSource = CropMath.clampedCrop(center: TCPoint(x: 1920, y: 1080),
+                                              size: TCSize(width: 100, height: 56),
+                                              source: source, minSizeFraction: 1.0)
+    expect(cappedToSource.width <= source.width + 1e-6, "floor capped to source width")
+    expect(cappedToSource.height <= source.height + 1e-6, "floor capped to source height")
+
+    // Default (minSizeFraction: 0) leaves a tight crop untouched — backwards compatible.
+    let unfloored = CropMath.clampedCrop(center: TCPoint(x: 1920, y: 1080),
+                                         size: TCSize(width: 384, height: 216), source: source)
+    expectClose(unfloored.width, 384, tol: 1e-6, "no floor by default")
 }

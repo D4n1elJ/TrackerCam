@@ -35,15 +35,29 @@ public enum CropMath {
         return TCSize(width: w2, height: w2 / outputAspect)
     }
 
-    /// Place a crop of `size` centered at `center`, scaled down to fit inside `source` if oversized,
+    /// Place a crop of `size` centered at `center`, scaled to fit inside `source` if oversized,
     /// then translated so it lies fully within the source. Aspect ratio is preserved.
-    public static func clampedCrop(center: TCPoint, size: TCSize, source: TCRect) -> TCRect {
+    ///
+    /// `minSizeFraction` (0…1) enforces a minimum crop size: the crop is grown uniformly so each
+    /// dimension is at least that fraction of the source — so the framing never zooms into a
+    /// close-up that loses the surrounding environment (plan §10 / improvements #36). The growth is
+    /// capped so the crop never exceeds the source. 0 (the default) disables the floor.
+    public static func clampedCrop(center: TCPoint, size: TCSize, source: TCRect,
+                                   minSizeFraction: Double = 0) -> TCRect {
         var w = size.width
         var h = size.height
         // Scale uniformly to fit the source if either dimension overflows.
-        let scale = min(1.0, min(source.width / w, source.height / h))
-        w *= scale
-        h *= scale
+        let fitScale = min(1.0, min(source.width / w, source.height / h))
+        w *= fitScale
+        h *= fitScale
+        // Enforce the minimum crop size, never growing past what fits the source.
+        if minSizeFraction > 0 {
+            let needed = max((minSizeFraction * source.width) / w, (minSizeFraction * source.height) / h)
+            let maxFit = min(source.width / w, source.height / h)   // ≥ 1 after the fit scale above
+            let grow = min(max(1.0, needed), maxFit)
+            w *= grow
+            h *= grow
+        }
         // Translate so the crop stays inside the source bounds.
         let x = clamp(center.x - w / 2, low: source.minX, high: source.maxX - w)
         let y = clamp(center.y - h / 2, low: source.minY, high: source.maxY - h)
