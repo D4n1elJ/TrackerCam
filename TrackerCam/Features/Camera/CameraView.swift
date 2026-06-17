@@ -21,13 +21,6 @@ struct CameraView: View {
                 } else {
                     MetalPreviewView(viewModel: viewModel, aspectFill: previewAspectFill)
                         .ignoresSafeArea()
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2) { viewModel.clearTarget() }   // double-tap = release target
-                        .onTapGesture { location in
-                            viewModel.refocus(atNormalizedPoint: CGPoint(
-                                x: location.x / geo.size.width,
-                                y: location.y / geo.size.height))
-                        }
                         .accessibilityLabel("Camera preview")
                         .accessibilityValue(viewModel.trackingState.label)
                         .accessibilityAction(named: Text("Refocus tracking")) {
@@ -44,6 +37,8 @@ struct CameraView: View {
                                 hint: viewModel.guidanceHint,
                                 confidence: viewModel.confidence,
                                 viewSize: geo.size)
+
+                    previewTapLayer(size: geo.size)
 
                     controls
                 }
@@ -95,6 +90,28 @@ struct CameraView: View {
             OnboardingView { hasOnboarded = true }
                 .interactiveDismissDisabled()
         }
+    }
+
+    private func previewTapLayer(size: CGSize) -> some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .ignoresSafeArea()
+            .gesture(
+                SpatialTapGesture(count: 2, coordinateSpace: .local)
+                    .onEnded { _ in viewModel.clearTarget() },
+                including: .gesture
+            )
+            .simultaneousGesture(
+                SpatialTapGesture(count: 1, coordinateSpace: .local)
+                    .onEnded { value in
+                        guard size.width > 0, size.height > 0 else { return }
+                        viewModel.refocus(atNormalizedPoint: CGPoint(
+                            x: value.location.x / size.width,
+                            y: value.location.y / size.height))
+                    },
+                including: .gesture
+            )
+            .accessibilityHidden(true)
     }
 
     private var controls: some View {
