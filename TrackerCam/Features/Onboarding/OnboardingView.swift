@@ -18,7 +18,7 @@ struct OnboardingView: View {
              body: "TrackerCam films a moving subject and keeps it framed for you, recording a smooth, tracked 1080p video."),
         Page(symbol: "hand.tap.fill",
              title: "Tap or Refocus to track",
-             body: "Tracking starts automatically. Tap the subject, or press Refocus, to choose a different one. Recording starts and stops only when you press Record."),
+             body: "Tap the subject to start tracking. Press Refocus to reacquire it, or double-tap the preview to release the target. Recording starts and stops only when you press Record."),
         Page(symbol: "arrow.left.arrow.right",
              title: "Arrows guide your aim",
              body: "Edge arrows show which way to pan the phone to keep the subject framed. They are a camera-aiming aid only — keep your attention on your surroundings."),

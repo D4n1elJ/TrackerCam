@@ -45,6 +45,13 @@ struct RecordingsView: View {
             }
             .navigationTitle("Recordings")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if !urls.isEmpty {
+                        Text(Self.librarySummary(urls))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .sheet(item: $playing) { url in
@@ -57,6 +64,17 @@ struct RecordingsView: View {
     private static func modified(_ url: URL) -> String {
         let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
         return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private static func librarySummary(_ urls: [URL]) -> String {
+        let bytes = urls.reduce(Int64(0)) { total, url in
+            let videoBytes = ((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            let sidecarURL = url.deletingPathExtension().appendingPathExtension("ndjson")
+            let sidecarBytes = ((try? sidecarURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            return total + Int64(videoBytes + sidecarBytes)
+        }
+        let clips = urls.count == 1 ? "1 clip" : "\(urls.count) clips"
+        return "\(clips) - \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))"
     }
 }
 

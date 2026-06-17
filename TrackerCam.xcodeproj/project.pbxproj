@@ -14,6 +14,7 @@
 		2DA8495A5A9DD9016D86081A /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2B84CA3E410DA99E7D30EA /* SettingsStore.swift */; };
 		3C6D7F739665DB02D308058C /* TrackerCamCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2AF7B24869017CB2F7EDF629 /* TrackerCamCore */; };
 		40A107DA7A2E457639E7D950 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D0F800A5F905D175907D96 /* CameraViewModel.swift */; };
+		4629EC3E8C50E166645085A5 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E7FDE4AF183CBEBACBAC4432 /* Localizable.xcstrings */; };
 		4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741ACBFDF07738B5B2F1C5F7 /* Geometry+CoreGraphics.swift */; };
 		4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */; };
 		530D9230A80D0176201BF46C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */; };
@@ -69,6 +70,7 @@
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
 		E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		E7FDE4AF183CBEBACBAC4432 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F0170BB81D7A521A10733D9D /* MetricsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsService.swift; sourceTree = "<group>"; };
 		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -216,6 +218,7 @@
 			isa = PBXGroup;
 			children = (
 				D906B993FB652152809EFA1C /* Assets.xcassets */,
+				E7FDE4AF183CBEBACBAC4432 /* Localizable.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -325,6 +328,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B02EF94B3E57052E70788B51 /* Assets.xcassets in Resources */,
+				4629EC3E8C50E166645085A5 /* Localizable.xcstrings in Resources */,
 				530D9230A80D0176201BF46C /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

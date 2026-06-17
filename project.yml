@@ -35,6 +35,8 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: TrackerCam
+        excludes:
+          - ML/MODEL_SPEC.md
     dependencies:
       - package: TrackerCamCore
         product: TrackerCamCore
@@ -51,4 +53,3 @@ targets:
         # because those only apply when GENERATE_INFOPLIST_FILE is YES; with an explicit
         # INFOPLIST_FILE and generation off they were silently ignored, which dropped the launch
         # screen and made the app render in scaled (zoomed-in) compatibility mode.
-
