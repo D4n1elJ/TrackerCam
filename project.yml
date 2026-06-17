@@ -53,3 +53,19 @@ targets:
         # because those only apply when GENERATE_INFOPLIST_FILE is YES; with an explicit
         # INFOPLIST_FILE and generation off they were silently ignored, which dropped the launch
         # screen and made the app render in scaled (zoomed-in) compatibility mode.
+
+  # App-layer unit tests (improvements2 B3). Hosted by the app target so tests can
+  # `@testable import TrackerCam`. XcodeGen wires TEST_HOST/BUNDLE_LOADER from the app dependency.
+  TrackerCamTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: TrackerCamTests
+    dependencies:
+      - target: TrackerCam
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        DEVELOPMENT_TEAM: DZNC8GD6WJ
+        CODE_SIGN_STYLE: Automatic

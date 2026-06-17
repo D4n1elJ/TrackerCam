@@ -48,3 +48,6 @@ jobs:
       # build) and builds for a generic iOS Simulator destination without code signing.
       - name: Validate simulator build
         run: make validate-sim
+
+      - name: Validate app tests compile
+        run: make validate-app-tests

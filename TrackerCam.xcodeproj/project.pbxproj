@@ -16,6 +16,7 @@
 		40A107DA7A2E457639E7D950 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D0F800A5F905D175907D96 /* CameraViewModel.swift */; };
 		4629EC3E8C50E166645085A5 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E7FDE4AF183CBEBACBAC4432 /* Localizable.xcstrings */; };
 		4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741ACBFDF07738B5B2F1C5F7 /* Geometry+CoreGraphics.swift */; };
+		4F7AA5E0B9E87A2D44E9C56B /* CameraCapabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976243AA8EE646AE77771C54 /* CameraCapabilityTests.swift */; };
 		4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */; };
 		530D9230A80D0176201BF46C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */; };
 		5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1075BAAE23507C186CDEE12E /* DetectionService.swift */; };
@@ -39,6 +40,16 @@
 		FBB97D9C7659CEEA9AD9EB16 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CACA31FEC3972D2FF88E5E /* CameraService.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		23BE65E0CC13A60187BCC458 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B47BDD09820A82D4F37E4936 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 105702D005A163730A148FE6;
+			remoteInfo = TrackerCam;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		1075BAAE23507C186CDEE12E /* DetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionService.swift; sourceTree = "<group>"; };
 		1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
@@ -58,11 +69,13 @@
 		91CACA31FEC3972D2FF88E5E /* CameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraService.swift; sourceTree = "<group>"; };
 		92C523EDBAE8290E6E82220F /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		945DCC1F528C76BD80E3A8A3 /* SidecarPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarPlayback.swift; sourceTree = "<group>"; };
+		976243AA8EE646AE77771C54 /* CameraCapabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapabilityTests.swift; sourceTree = "<group>"; };
 		A0AB0B54E07A48924CECB402 /* TrackingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingEngine.swift; sourceTree = "<group>"; };
 		A3781180FD716F5430F058B1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameRouter.swift; sourceTree = "<group>"; };
 		A74883230443D7FDBA4794DC /* OverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayView.swift; sourceTree = "<group>"; };
 		A9FF827FE583EA6811CF4F0B /* RecordingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingsView.swift; sourceTree = "<group>"; };
+		C5395877FD4376AADEF82260 /* TrackerCamTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TrackerCamTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA73B230E3F8BD0135FE6ABF /* CropShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CropShader.metal; sourceTree = "<group>"; };
 		D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropMetadataStreamWriter.swift; sourceTree = "<group>"; };
 		D906B993FB652152809EFA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -91,8 +104,17 @@
 			isa = PBXGroup;
 			children = (
 				F72914035665EC0F26C6608B /* TrackerCam.app */,
+				C5395877FD4376AADEF82260 /* TrackerCamTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		05E763CFF2C698083A6EDF0C /* TrackerCamTests */ = {
+			isa = PBXGroup;
+			children = (
+				976243AA8EE646AE77771C54 /* CameraCapabilityTests.swift */,
+			);
+			path = TrackerCamTests;
 			sourceTree = "<group>";
 		};
 		1CC6FDE10AEA7A35310D4581 /* Support */ = {
@@ -241,6 +263,7 @@
 			children = (
 				A80DBE0912694F4B68C1D425 /* Packages */,
 				CA83E3B964B41C05058AE8F2 /* TrackerCam */,
+				05E763CFF2C698083A6EDF0C /* TrackerCamTests */,
 				011ADA93760C194A35E4E43B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -285,6 +308,24 @@
 			productReference = F72914035665EC0F26C6608B /* TrackerCam.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A285DB3C3CE480049F2E1D42 /* TrackerCamTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8713BD1DC387C32763B0E38E /* Build configuration list for PBXNativeTarget "TrackerCamTests" */;
+			buildPhases = (
+				B339D9897595D789C2910897 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B5AC4168F5C0B632089B5024 /* PBXTargetDependency */,
+			);
+			name = TrackerCamTests;
+			packageProductDependencies = (
+			);
+			productName = TrackerCamTests;
+			productReference = C5395877FD4376AADEF82260 /* TrackerCamTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -295,6 +336,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					105702D005A163730A148FE6 = {
+						DevelopmentTeam = DZNC8GD6WJ;
+						ProvisioningStyle = Automatic;
+					};
+					A285DB3C3CE480049F2E1D42 = {
 						DevelopmentTeam = DZNC8GD6WJ;
 						ProvisioningStyle = Automatic;
 					};
@@ -318,6 +363,7 @@
 			projectRoot = "";
 			targets = (
 				105702D005A163730A148FE6 /* TrackerCam */,
+				A285DB3C3CE480049F2E1D42 /* TrackerCamTests */,
 			);
 		};
 /* End PBXProject section */
@@ -369,7 +415,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B339D9897595D789C2910897 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4F7AA5E0B9E87A2D44E9C56B /* CameraCapabilityTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B5AC4168F5C0B632089B5024 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 105702D005A163730A148FE6 /* TrackerCam */;
+			targetProxy = 23BE65E0CC13A60187BCC458 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		18877153C1533A86BBF7763B /* Release */ = {
@@ -430,6 +492,46 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		4EF3270AA1B0A8E8B3CABD33 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DZNC8GD6WJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.trackercam.TrackerCamTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TrackerCam.app/TrackerCam";
+			};
+			name = Debug;
+		};
+		79BFB0888FBB96000F89EA51 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DZNC8GD6WJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.trackercam.TrackerCamTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TrackerCam.app/TrackerCam";
 			};
 			name = Release;
 		};
@@ -549,6 +651,15 @@
 			buildConfigurations = (
 				DC8BBBE3D592F9F9059D3CB7 /* Debug */,
 				18877153C1533A86BBF7763B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8713BD1DC387C32763B0E38E /* Build configuration list for PBXNativeTarget "TrackerCamTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4EF3270AA1B0A8E8B3CABD33 /* Debug */,
+				79BFB0888FBB96000F89EA51 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
