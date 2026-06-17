@@ -58,6 +58,9 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
     public var verticalCompositionOffset: Double
     public var userLeadTime: Double
     public var dynamicZoomEnabled: Bool
+    /// Minimum crop size as a fraction of the source frame — the "never crop into a close-up" floor.
+    /// Higher = more surrounding environment always in frame (plan §10 / improvements #36).
+    public var minCropFraction: Double
     public var showMiniMap: Bool
     // Camera
     public var outputResolution: OutputResolution
@@ -90,6 +93,7 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
         verticalCompositionOffset: Double,
         userLeadTime: Double,
         dynamicZoomEnabled: Bool,
+        minCropFraction: Double = 0.45,
         showMiniMap: Bool,
         outputResolution: OutputResolution,
         frameRate: FrameRatePreset,
@@ -117,6 +121,7 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
         self.verticalCompositionOffset = verticalCompositionOffset
         self.userLeadTime = userLeadTime
         self.dynamicZoomEnabled = dynamicZoomEnabled
+        self.minCropFraction = minCropFraction
         self.showMiniMap = showMiniMap
         self.outputResolution = outputResolution
         self.frameRate = frameRate
@@ -147,6 +152,7 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
         verticalCompositionOffset: -0.05,
         userLeadTime: 0.10,
         dynamicZoomEnabled: true,
+        minCropFraction: 0.45,
         showMiniMap: false,
         outputResolution: .tracked1080p,
         frameRate: .preferred60,
@@ -171,6 +177,7 @@ public struct TrackerSettings: Equatable, Sendable, Codable {
         s.confidenceThreshold = clamp(s.confidenceThreshold, low: 0.0, high: 1.0)
         s.smoothingStrength = clamp(s.smoothingStrength, low: 0.0, high: 1.0)
         s.targetSubjectHeight = clamp(s.targetSubjectHeight, low: 0.12, high: 0.55)
+        s.minCropFraction = clamp(s.minCropFraction, low: 0.25, high: 0.9)
         s.subjectPadding = clamp(s.subjectPadding, low: 0.10, high: 0.35)
         s.compositionLeadFraction = clamp(s.compositionLeadFraction, low: 0.0, high: 0.20)
         s.verticalCompositionOffset = clamp(s.verticalCompositionOffset, low: -0.15, high: 0.10)
