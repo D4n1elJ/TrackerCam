@@ -74,8 +74,12 @@ struct CameraView: View {
             .overlay(alignment: .leading) {
                 // Live dynamic-crop control: drag up to zoom in (tighter), down to widen.
                 if !viewModel.permissionDenied && viewModel.settingsStore.settings.dynamicZoomEnabled {
-                    ZoomSlider(value: zoomBinding, range: 0.12...0.55)
-                        .padding(.leading, 8)
+                    VStack {
+                        Spacer(minLength: 120)
+                        ZoomSlider(value: zoomBinding, range: 0.12...0.55)
+                        Spacer(minLength: 120)
+                    }
+                    .padding(.leading, 12)
                 }
             }
         }
@@ -102,9 +106,10 @@ struct CameraView: View {
                     Label("Low battery", systemImage: "battery.25")
                         .font(.caption2.bold()).foregroundStyle(.orange)
                 }
-                Text(viewModel.effectiveConfigSummary)
+                Text(effectiveConfigLabel)
                     .font(.caption2.monospaced())
                     .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
                     .accessibilityAddTraits(.updatesFrequently)
             }
             .padding()
@@ -155,6 +160,7 @@ struct CameraView: View {
                 }
             }
             .padding(24)
+            .padding(.leading, viewModel.settingsStore.settings.dynamicZoomEnabled ? 84 : 0)
         }
     }
 
@@ -169,6 +175,12 @@ struct CameraView: View {
     private var miniMapAspect: CGFloat {
         let r = viewModel.settingsStore.settings.aspectRatio.ratio
         return r > 0 ? CGFloat(r) : 16.0 / 9.0
+    }
+
+    private var effectiveConfigLabel: String {
+        viewModel.effectiveConfigSummary == "Camera config failed: noCamera"
+            ? "No camera"
+            : viewModel.effectiveConfigSummary
     }
 
     private var statusBadge: some View {
