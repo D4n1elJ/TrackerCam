@@ -46,7 +46,8 @@ targets:
         DEVELOPMENT_TEAM: J98R4BWQVY
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1" # iPhone only for v1
-        # Landscape-first capture (plan §4/§12); portrait secondary.
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeRight UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationPortrait"
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # Launch screen, supported orientations, and the scene manifest are declared directly in
+        # TrackerCam/App/Info.plist (authoritative). They are NOT set via INFOPLIST_KEY_* here
+        # because those only apply when GENERATE_INFOPLIST_FILE is YES; with an explicit
+        # INFOPLIST_FILE and generation off they were silently ignored, which dropped the launch
+        # screen and made the app render in scaled (zoomed-in) compatibility mode.

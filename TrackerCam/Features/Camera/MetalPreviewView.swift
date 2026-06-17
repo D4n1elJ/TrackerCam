@@ -4,6 +4,8 @@ import MetalKit
 /// Draws the view model's latest reframed texture into an MTKView drawable (plan §10 preview).
 struct MetalPreviewView: UIViewRepresentable {
     var viewModel: CameraViewModel
+    /// Aspect-FILL (cover, crops edges) when true; aspect-FIT (letterbox) when false.
+    var aspectFill: Bool = true
 
     func makeCoordinator() -> Coordinator { Coordinator(viewModel: viewModel) }
 
@@ -13,14 +15,21 @@ struct MetalPreviewView: UIViewRepresentable {
         view.delegate = context.coordinator
         view.colorPixelFormat = .bgra8Unorm
         view.framebufferOnly = true
-        view.preferredFramesPerSecond = 60
+        // Draw on demand (one redraw per delivered frame) instead of a fixed 60fps clock, so the GPU
+        // idles when no new frame is ready — saves power, especially below 60fps capture.
+        view.isPaused = true
+        view.enableSetNeedsDisplay = true
         view.isOpaque = true
         view.clearColor = MTLClearColorMake(0, 0, 0, 1)  // letterbox bars
         context.coordinator.configure(device: view.device)
+        viewModel.requestPreviewRedraw = { [weak view] in view?.setNeedsDisplay() }
         return view
     }
 
-    func updateUIView(_ uiView: MTKView, context: Context) {}
+    func updateUIView(_ uiView: MTKView, context: Context) {
+        context.coordinator.aspectFill = aspectFill
+        uiView.setNeedsDisplay()
+    }
 
     // MTKViewDelegate methods are NS_SWIFT_UI_ACTOR (@MainActor) in the SDK, so the coordinator
     // is @MainActor and its methods satisfy the requirements directly.
@@ -29,6 +38,7 @@ struct MetalPreviewView: UIViewRepresentable {
         private let viewModel: CameraViewModel
         private var queue: MTLCommandQueue?
         private var pipeline: MTLRenderPipelineState?
+        var aspectFill: Bool = true
 
         init(viewModel: CameraViewModel) { self.viewModel = viewModel }
 
@@ -52,11 +62,16 @@ struct MetalPreviewView: UIViewRepresentable {
                   let cmd = queue?.makeCommandBuffer(),
                   let enc = cmd.makeRenderCommandEncoder(descriptor: rpd) else { return }
 
-            // Aspect-FILL the texture into the drawable (full screen, crop the overflow; no skew).
+            // Scale the texture into the drawable preserving aspect: FILL covers (crops overflow),
+            // FIT letterboxes (whole frame visible). No skew either way.
             let texA = Float(texture.width) / Float(texture.height)
             let drwA = Float(drawable.texture.width) / Float(drawable.texture.height)
             var scale = SIMD2<Float>(1, 1)
-            if drwA > texA { scale.y = drwA / texA } else { scale.x = texA / drwA }
+            if aspectFill {
+                if drwA > texA { scale.y = drwA / texA } else { scale.x = texA / drwA }
+            } else {
+                if drwA > texA { scale.x = texA / drwA } else { scale.y = drwA / texA }
+            }
 
             enc.setRenderPipelineState(pipeline)
             enc.setVertexBytes(&scale, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)

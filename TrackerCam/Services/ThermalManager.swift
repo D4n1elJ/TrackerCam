@@ -48,4 +48,13 @@ final class ThermalManager {
 
     /// Whether capture must stop & finalize now (plan §15 critical / decision D19).
     var mustStopRecording: Bool { level == .critical }
+
+    /// Drop Vision object tracking to `.fast` under thermal pressure to shed CPU/ANE load before
+    /// frames start dropping (plan §15 Thermal Ladder).
+    var useFastTracking: Bool {
+        switch level {
+        case .nominal, .fair: return false
+        case .serious, .critical: return true
+        }
+    }
 }

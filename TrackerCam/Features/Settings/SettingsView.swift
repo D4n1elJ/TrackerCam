@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
     @AppStorage("trackercam.showGrid") private var showGrid = false
+    @AppStorage("trackercam.previewAspectFill") private var previewAspectFill = true
 
     var body: some View {
         @Bindable var store = store
@@ -32,8 +33,9 @@ struct SettingsView: View {
                         Text("1:1").tag(AspectRatioMode.square1x1)
                         Text("Full").tag(AspectRatioMode.fullFrame)
                     }
+                    Toggle("Fill screen (crop edges)", isOn: $previewAspectFill)
                     Toggle("Dynamic zoom", isOn: $store.settings.dynamicZoomEnabled)
-                    slider("Subject height", $store.settings.targetSubjectHeight, 0.25...0.55)
+                    slider("Subject height", $store.settings.targetSubjectHeight, 0.12...0.55)
                     slider("Padding", $store.settings.subjectPadding, 0.10...0.35)
                     slider("Lead", $store.settings.compositionLeadFraction, 0.0...0.20)
                     Toggle("Mini-map", isOn: $store.settings.showMiniMap)

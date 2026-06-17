@@ -6,6 +6,11 @@ import TrackerCamCore
 /// GPU crop + YUV→RGB into a fixed-size output (plan §10 GPU Pipeline).
 /// One crop decision + one sampling pass feeds BOTH preview (MTLTexture) and recording
 /// (the same frame as an IOSurface-backed CVPixelBuffer), so they can never diverge.
+///
+/// Main-actor isolated: it is only ever driven from `CameraViewModel`'s per-frame path, so this
+/// keeps the (non-Sendable) source pixel buffer from crossing isolation while still letting the
+/// GPU run asynchronously (see `render`).
+@MainActor
 final class ReframePipeline {
     struct CropParams { var cropOrigin: SIMD2<Float>; var cropSize: SIMD2<Float> }
 
@@ -22,7 +27,7 @@ final class ReframePipeline {
     private let pool: CVPixelBufferPool
     let outputSize: CGSize
 
-    init?(outputSize: CGSize) {
+    init?(outputSize: CGSize, poolSize: Int = 4) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
               let library = device.makeDefaultLibrary(),
@@ -35,7 +40,7 @@ final class ReframePipeline {
         self.pipelineState = state
         self.outputSize = outputSize
 
-        let poolAttrs = [kCVPixelBufferPoolMinimumBufferCountKey as String: 4]
+        let poolAttrs = [kCVPixelBufferPoolMinimumBufferCountKey as String: poolSize]
         let bufferAttrs: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey as String: Int(outputSize.width),
@@ -54,7 +59,10 @@ final class ReframePipeline {
 
     /// Render the source-pixel crop of `pixelBuffer` into a fresh pooled output frame.
     /// Returns nil if textures/buffers could not be created (the frame is dropped for preview).
-    func render(pixelBuffer: CVPixelBuffer, cropPixelRect: TCRect, sourceSize: TCSize) -> RenderedFrame? {
+    ///
+    /// Awaits the GPU via a completion handler rather than `waitUntilCompleted()`, so the caller's
+    /// thread (the main actor) is freed to service UI and other frames while the GPU runs.
+    func render(pixelBuffer: CVPixelBuffer, cropPixelRect: TCRect, sourceSize: TCSize) async -> RenderedFrame? {
         guard let luma = makeTexture(pixelBuffer, plane: 0, format: .r8Unorm),
               let chroma = makeTexture(pixelBuffer, plane: 1, format: .rg8Unorm) else { return nil }
 
@@ -82,8 +90,14 @@ final class ReframePipeline {
         let grid = MTLSize(width: outTex.width, height: outTex.height, depth: 1)
         enc.dispatchThreads(grid, threadsPerThreadgroup: MTLSize(width: w, height: h, depth: 1))
         enc.endEncoding()
-        cmd.commit()
-        cmd.waitUntilCompleted()   // preview/record read the result immediately; TODO: pipeline via completion handler
+
+        // Suspend until the GPU finishes instead of blocking the thread. The completed-handler
+        // closure captures only the (Sendable) continuation; the non-Sendable texture/buffer are
+        // returned after the await, so nothing crosses isolation.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            cmd.addCompletedHandler { _ in continuation.resume() }
+            cmd.commit()
+        }
 
         return RenderedFrame(texture: outTex, pixelBuffer: outBuffer)
     }

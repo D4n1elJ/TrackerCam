@@ -29,6 +29,28 @@
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
 
+    <!-- Native-resolution launch screen. Without UILaunchScreen, iOS runs the app in scaled
+         compatibility mode and the whole UI appears zoomed in / large-font. These keys live here
+         (authoritative) rather than as INFOPLIST_KEY_* build settings, which only take effect when
+         GENERATE_INFOPLIST_FILE is YES — it is not, so those settings were being ignored. -->
+    <key>UILaunchScreen</key>
+    <dict/>
+
+    <!-- Landscape-first capture (plan §4/§12); portrait secondary. -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+
+    <!-- SwiftUI (WindowGroup) scene support. -->
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <true/>
+    </dict>
+
     <!-- Background recording is explicitly unsupported (plan §5). No UIBackgroundModes. -->
 </dict>
 </plist>

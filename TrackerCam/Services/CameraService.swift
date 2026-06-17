@@ -34,6 +34,7 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var device: AVCaptureDevice?
     private var connection: AVCaptureConnection?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var rotationObservation: NSKeyValueObservation?
 
     private var sequence: UInt64 = 0
     private(set) var sessionGeneration: UInt64 = 0
@@ -172,6 +173,20 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         let angle = coordinator.videoRotationAngleForHorizonLevelCapture
         if conn.isVideoRotationAngleSupported(angle) {
             conn.videoRotationAngle = angle
+        }
+
+        // Track device rotation live so the viewfinder re-levels as the phone turns (full UI
+        // autorotation): the coordinator's horizon-level angle is KVO-observable and updates as the
+        // device orientation changes. Apply on the session queue to serialize with the connection.
+        rotationObservation?.invalidate()
+        rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture,
+                                                  options: [.new]) { [weak self] coordinator, _ in
+            let newAngle = coordinator.videoRotationAngleForHorizonLevelCapture
+            self?.sessionQueue.async {
+                guard let self, let conn = self.connection,
+                      conn.isVideoRotationAngleSupported(newAngle) else { return }
+                conn.videoRotationAngle = newAngle
+            }
         }
 
         sessionGeneration &+= 1
