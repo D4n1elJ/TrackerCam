@@ -15,15 +15,9 @@ struct MetalPreviewView: UIViewRepresentable {
         view.delegate = context.coordinator
         view.colorPixelFormat = .bgra8Unorm
         view.framebufferOnly = true
-        // Draw on demand (one redraw per delivered frame) instead of a fixed 60fps clock, so the GPU
-        // idles when no new frame is ready — saves power, especially below 60fps capture.
-        view.isPaused = true
-        view.enableSetNeedsDisplay = true
-
         view.isOpaque = true
         view.clearColor = MTLClearColorMake(0, 0, 0, 1)
-        // Push model: don't free-run. Draw exactly once per fresh reframed frame → low latency AND
-        // no judder from two unsynced 60 Hz loops.
+        // Push model: draw on demand, one redraw per delivered frame, instead of a fixed display clock.
         view.isPaused = true
         view.enableSetNeedsDisplay = true
         (view.layer as? CAMetalLayer)?.maximumDrawableCount = 2

@@ -31,11 +31,13 @@ struct ReplayView: View {
         }
         .ignoresSafeArea()
         .onAppear {
-            frames = Sidecar.load(videoURL: url)
+            let loadedFrames = Sidecar.load(videoURL: url)
+            frames = loadedFrames
             player.replaceCurrentItem(with: AVPlayerItem(url: url))
             observer = player.addPeriodicTimeObserver(
                 forInterval: CMTime(seconds: 0.05, preferredTimescale: 600), queue: .main) { time in
-                subject = Sidecar.subject(at: time.seconds, in: frames)
+                let currentSubject = Sidecar.subject(at: time.seconds, in: loadedFrames)
+                Task { @MainActor in subject = currentSubject }
             }
             player.play()
         }

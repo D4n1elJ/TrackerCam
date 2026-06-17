@@ -43,7 +43,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.trackercam.app
         INFOPLIST_FILE: TrackerCam/App/Info.plist
         CODE_SIGN_ENTITLEMENTS: TrackerCam/App/TrackerCam.entitlements
-        DEVELOPMENT_TEAM: J98R4BWQVY
+        DEVELOPMENT_TEAM: DZNC8GD6WJ
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1" # iPhone only for v1
         # Launch screen, supported orientations, and the scene manifest are declared directly in

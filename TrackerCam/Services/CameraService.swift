@@ -171,23 +171,14 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
         self.rotationCoordinator = coordinator
         applyRotation(coordinator.videoRotationAngleForHorizonLevelCapture)
-        // Keep the buffer orientation correct as the phone is physically rotated.
-        rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.new]) { [weak self] coord, _ in
-            self?.applyRotation(coord.videoRotationAngleForHorizonLevelCapture)
-        }
-
         // Track device rotation live so the viewfinder re-levels as the phone turns (full UI
         // autorotation): the coordinator's horizon-level angle is KVO-observable and updates as the
-        // device orientation changes. Apply on the session queue to serialize with the connection.
+        // device orientation changes. Apply on the session queue to serialize with the connection
+        // and respect recording's rotation lock.
         rotationObservation?.invalidate()
         rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture,
                                                   options: [.new]) { [weak self] coordinator, _ in
-            let newAngle = coordinator.videoRotationAngleForHorizonLevelCapture
-            self?.sessionQueue.async {
-                guard let self, let conn = self.connection,
-                      conn.isVideoRotationAngleSupported(newAngle) else { return }
-                conn.videoRotationAngle = newAngle
-            }
+            self?.applyRotation(coordinator.videoRotationAngleForHorizonLevelCapture)
         }
 
         sessionGeneration &+= 1

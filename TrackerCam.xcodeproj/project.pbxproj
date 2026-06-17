@@ -278,7 +278,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					105702D005A163730A148FE6 = {
-						DevelopmentTeam = J98R4BWQVY;
+						DevelopmentTeam = DZNC8GD6WJ;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -420,7 +420,7 @@
 				CODE_SIGN_ENTITLEMENTS = TrackerCam/App/TrackerCam.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = J98R4BWQVY;
+				DEVELOPMENT_TEAM = DZNC8GD6WJ;
 				INFOPLIST_FILE = TrackerCam/App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -440,7 +440,7 @@
 				CODE_SIGN_ENTITLEMENTS = TrackerCam/App/TrackerCam.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = J98R4BWQVY;
+				DEVELOPMENT_TEAM = DZNC8GD6WJ;
 				INFOPLIST_FILE = TrackerCam/App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
