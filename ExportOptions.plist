@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Store / TestFlight export. Automatic signing matches project.yml (CODE_SIGN_STYLE
+         Automatic, DEVELOPMENT_TEAM DZNC8GD6WJ). Requires the account to have distribution
+         capability (paid Apple Developer Program). -->
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>destination</key>
+    <string>export</string>
+    <key>teamID</key>
+    <string>DZNC8GD6WJ</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <!-- Strip Swift symbols and upload bitcode-free (bitcode is deprecated). -->
+    <key>uploadSymbols</key>
+    <true/>
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
+</dict>
+</plist>

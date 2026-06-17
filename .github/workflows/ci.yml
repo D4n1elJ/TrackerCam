@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core logic (swift test)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # TrackerCamCore is framework-free and validated with Swift Testing via `swift test`.
+      # Select the newest available Xcode so the Swift 6.x toolchain is used (the package targets
+      # the Swift 6 language mode). If the runner image lags the project's Xcode, bump this.
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Show toolchain
+        run: swift --version && xcodebuild -version
+
+      - name: Validate core
+        run: make validate-core
+
+  app:
+    name: App build (simulator)
+    runs-on: macos-15
+    # Only on PRs: the iOS app build needs the iOS SDK/simulator and is slower. The core job is the
+    # fast required gate; this catches app-layer breakage before merge.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # `make validate-sim` regenerates the project (so a new source file can't silently break the
+      # build) and builds for a generic iOS Simulator destination without code signing.
+      - name: Validate simulator build
+        run: make validate-sim
