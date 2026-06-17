@@ -27,6 +27,12 @@
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
 
+    <!-- Export compliance: the app uses only standard OS encryption (no proprietary/non-exempt
+         crypto) and processes everything on-device. Declaring this skips the per-upload encryption
+         question in App Store Connect (improvements2 E1). -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+
     <!-- Native-resolution launch screen. Without UILaunchScreen, iOS runs the app in scaled
          compatibility mode and the whole UI appears zoomed in / large-font. These keys live here
          (authoritative) rather than as INFOPLIST_KEY_* build settings, which only take effect when
