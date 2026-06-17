@@ -73,6 +73,7 @@ actor TrackingEngine {
         currentSeed = pixelRect
         trackingRequest = nil          // re-seed Vision tracker on next frame
         manualSeedTrustFrames = 12     // user taps are intentional; let Vision establish its track.
+        stateMachine.reset()
         stateMachine.startAcquisition(at: lastSeconds)
         kalman = KalmanFilter2D(
             processNoise: Self.processNoise(for: settings.smoothingStrength),

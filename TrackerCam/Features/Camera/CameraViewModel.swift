@@ -219,10 +219,17 @@ final class CameraViewModel {
                             height: Double(camera.effective?.dimensions.height ?? 2160))
         let seed: TCRect
         if let p {
-            // Clamped seed = 20% of shorter dimension centered at the tap (plan §8 Tap-to-track).
-            let side = min(source.width, source.height) * 0.2
-            seed = TCRect(center: TCPoint(x: p.x * source.width, y: p.y * source.height),
-                          size: TCSize(width: side, height: side))
+            // Manual taps should select a precise object, not the strongest contrast in a broad
+            // neighborhood. Scale the seed by the visible crop so retaps while zoomed are tighter.
+            let sourceShort = min(source.width, source.height)
+            let crop = cropInSourceRect ?? CGRect(x: 0, y: 0, width: 1, height: 1)
+            let visibleShort = min(Double(crop.width) * source.width, Double(crop.height) * source.height)
+            let side = min(sourceShort * 0.08, max(sourceShort * 0.035, visibleShort * 0.14))
+            seed = Self.clampedSeed(
+                center: TCPoint(x: p.x * source.width, y: p.y * source.height),
+                side: side,
+                source: source
+            )
         } else {
             seed = TCRect(center: source.center,
                           size: TCSize(width: source.width * 0.3, height: source.height * 0.3))
@@ -598,6 +605,14 @@ final class CameraViewModel {
 
     private func isCurrentGeneration(_ generation: UInt64) -> Bool {
         lifecycleGeneration == generation && !Task.isCancelled
+    }
+
+    private static func clampedSeed(center: TCPoint, side: Double, source: TCRect) -> TCRect {
+        let clampedSide = min(side, source.width, source.height)
+        let half = clampedSide / 2
+        let x = min(max(center.x - half, source.minX), source.maxX - clampedSide)
+        let y = min(max(center.y - half, source.minY), source.maxY - clampedSide)
+        return TCRect(x: x, y: y, width: clampedSide, height: clampedSide)
     }
 
     /// Analysis-buffer size: source aspect preserved, scaled so the long side is ~1280px. Keeping the
