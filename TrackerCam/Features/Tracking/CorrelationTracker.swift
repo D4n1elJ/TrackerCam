@@ -29,20 +29,23 @@ import TrackerCamCore
 
 final class CorrelationTracker {
 
-    private static let tw = 32          // template grid width
-    private static let th = 24          // template grid height
-    private static let searchRadius = 44.0   // plane px; wide enough to follow a fast canter
-    private static let searchStep = 2.0
+    private static let tw = 20          // template grid width (kept small — NCC cost ∝ tw·th·candidates)
+    private static let th = 15          // template grid height
+    private static let searchRadius = 32.0   // plane px; follows canter + camera pan
+    private static let searchStep = 3.0
+    private static let scales = [0.92, 1.0, 1.08]   // multi-scale: follow the subject's size change
     private static let lostNCC = 0.45   // weak/background matches ⇒ lost (detector re-seeds)
-    private static let adaptRate: Float = 0.08
+    private static let adaptRate: Float = 0.03   // slow: anchor to the seed appearance, resist drift
 
     /// Peak NCC of the last match (0…1). A confidence proxy.
     private(set) var confidence: Double = 0
 
     private var cx: Double              // target center, plane px
     private var cy: Double
-    private let bw: Double              // box size, plane px (fixed; scale search is a future add)
-    private let bh: Double
+    private var bw: Double              // box size, plane px (adapted by multi-scale search)
+    private var bh: Double
+    private let bw0: Double             // seed box size, for scale clamping
+    private let bh0: Double
     private let scale: Double           // plane.width / source.width
     private var template: [Float]       // normalized (zero-mean, unit-norm), TW*TH
 
@@ -55,23 +58,28 @@ final class CorrelationTracker {
         cy = box.center.y * scale
         bw = max(6, box.width * scale)
         bh = max(6, box.height * scale)
+        bw0 = bw
+        bh0 = bh
         template = Self.normalized(Self.sample(luma, cx: cx, cy: cy, w: bw, h: bh))
     }
 
     // -----------------------------------------------------------------------------------------
     func update(luma: LumaPlane, source: TCSize) -> TCRect? {
-        var best = -2.0, bestX = cx, bestY = cy
-        // Track the response along the center row/col for sub-pixel refinement.
-        var dy = -Self.searchRadius
-        while dy <= Self.searchRadius {
-            var dx = -Self.searchRadius
-            while dx <= Self.searchRadius {
-                let patch = Self.sample(luma, cx: cx + dx, cy: cy + dy, w: bw, h: bh)
-                let score = Self.ncc(template, Self.normalized(patch))
-                if score > best { best = score; bestX = cx + dx; bestY = cy + dy }
-                dx += Self.searchStep
+        var best = -2.0, bestX = cx, bestY = cy, bestScale = 1.0
+        // Search position × a few scales so the box follows a deforming / approaching subject (the
+        // appearance match is invariant to camera motion — this is the moving-camera-safe signal).
+        for sc in Self.scales {
+            let sw = bw * sc, sh = bh * sc
+            var dy = -Self.searchRadius
+            while dy <= Self.searchRadius {
+                var dx = -Self.searchRadius
+                while dx <= Self.searchRadius {
+                    let s = Self.ncc(template, Self.normalized(Self.sample(luma, cx: cx + dx, cy: cy + dy, w: sw, h: sh)))
+                    if s > best { best = s; bestX = cx + dx; bestY = cy + dy; bestScale = sc }
+                    dx += Self.searchStep
+                }
+                dy += Self.searchStep
             }
-            dy += Self.searchStep
         }
 
         confidence = max(0, best)
@@ -82,6 +90,9 @@ final class CorrelationTracker {
 
         cx = bestX
         cy = bestY
+        // Apply the chosen scale, clamped to a band around the seed size (prevents runaway zoom).
+        bw = min(max(bw * bestScale, bw0 * 0.5), bw0 * 2.0)
+        bh = min(max(bh * bestScale, bh0 * 0.5), bh0 * 2.0)
 
         // Slow template adaptation (follows gradual appearance change without runaway drift).
         let fresh = Self.normalized(Self.sample(luma, cx: cx, cy: cy, w: bw, h: bh))
@@ -97,11 +108,23 @@ final class CorrelationTracker {
     private static func sample(_ luma: LumaPlane, cx: Double, cy: Double, w: Double, h: Double) -> [Float] {
         var out = [Float](repeating: 0, count: tw * th)
         let x0 = cx - w / 2, y0 = cy - h / 2
+        let stepX = w / Double(tw), stepY = h / Double(th)
+        let bpp = luma.bytesPerPixel
+        let maxX = luma.width - 1, maxY = luma.height - 1
+        // Fast nearest-neighbor, direct byte read. NCC needs the cost ∝ tw·th·candidates to stay
+        // tiny; per-pixel bilinear was too expensive. Use Y directly for 420v and a cheap grayscale
+        // average for BGRA so brown-subject contrast is not reduced to the blue channel.
         for j in 0..<th {
-            let sy = y0 + (Double(j) + 0.5) * h / Double(th)
+            let iy = min(max(Int(y0 + (Double(j) + 0.5) * stepY), 0), maxY)
+            let row = luma.base + iy * luma.rowBytes
             for i in 0..<tw {
-                let sx = x0 + (Double(i) + 0.5) * w / Double(tw)
-                out[j * tw + i] = Float(luma.sample(x: sx, y: sy))
+                let ix = min(max(Int(x0 + (Double(i) + 0.5) * stepX), 0), maxX)
+                let offset = ix * bpp
+                if bpp == 1 {
+                    out[j * tw + i] = Float(row[offset])
+                } else {
+                    out[j * tw + i] = Float((UInt16(row[offset]) + UInt16(row[offset + 1]) + UInt16(row[offset + 2])) / 3)
+                }
             }
         }
         return out

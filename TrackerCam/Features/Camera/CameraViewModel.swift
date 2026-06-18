@@ -98,7 +98,9 @@ final class CameraViewModel {
     private var trackMsEMA: Double = 0
     private var reframeMsEMA: Double = 0
     private var detectionMsEMA: Double = 0
-    private var cropController = CropController()
+    // The app needs a faster center pan than the conservative core default so a cantering subject
+    // does not outrun the crop between detector/tracker updates.
+    private var cropController = CropController(maxCenterSpeed: 3.5)
     private let cropPlanner = CropPlanner()
     private var cropMetadataWriter: CropMetadataStreamWriter?
     private var cropMetadataTempURL: URL?
@@ -538,8 +540,9 @@ final class CameraViewModel {
             previous: trackingScoreEMA
         )
 
-        // Motion centroid of the moving subject (computed once/frame on the source luma) — used both
-        // to steer the crop and to score centering.
+        // Motion centroid of the moving subject (computed once/frame on the source luma). In normal
+        // camera use it only scores centering; in the simulator fixture it is also the strongest
+        // static-camera signal for the horse/rider.
         CVPixelBufferLockBaseAddress(payload.pixelBuffer, .readOnly)
         if let lp = LumaPlane.fromLockedPixelBuffer(payload.pixelBuffer) {
             centeringMeter.updateCentroid(luma: lp)
@@ -577,13 +580,17 @@ final class CameraViewModel {
             trackCenter = center
         }
 
-        // Motion-centering: the horse is the moving object, so the motion centroid is the most
-        // reliable "where is the subject" signal against a static arena. Center the crop on it
-        // (overriding the tracker, which drifts) so the subject sits in the middle of the output.
+        #if targetEnvironment(simulator)
+        // The simulator validation clip is a static-camera MOV, so frame-difference motion is the
+        // most reliable horse/rider target. Keep device behavior appearance-based because camera
+        // motion makes whole-frame motion an unsafe target signal there.
         if let motionCenter {
             trackCenter = motionCenter
             if trackSize == nil { trackSize = Self.outputSizeTC(for: s.aspectRatio) }
         }
+        #else
+        _ = motionCenter
+        #endif
 
         // Plan the desired crop per tracking state (incl. lost ladder), then rate-limit it (plan §10).
         let planned = cropPlanner.plan(
