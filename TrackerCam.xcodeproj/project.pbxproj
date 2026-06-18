@@ -30,6 +30,7 @@
 		B02EF94B3E57052E70788B51 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D906B993FB652152809EFA1C /* Assets.xcassets */; };
 		B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880FA74AA118DDADEE66C407 /* ReframePipeline.swift */; };
 		B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */; };
+		C3CF68BA783ABFDC91CA5D58 /* CorrelationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D658993865C10161CA56CC4A /* CorrelationTracker.swift */; };
 		C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */; };
 		CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */; };
 		CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */; };
@@ -81,6 +82,7 @@
 		C45DD0B331200F83757EB429 /* SimulatorFixture.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = SimulatorFixture.mov; sourceTree = "<group>"; };
 		C5395877FD4376AADEF82260 /* TrackerCamTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TrackerCamTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA73B230E3F8BD0135FE6ABF /* CropShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CropShader.metal; sourceTree = "<group>"; };
+		D658993865C10161CA56CC4A /* CorrelationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrelationTracker.swift; sourceTree = "<group>"; };
 		D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropMetadataStreamWriter.swift; sourceTree = "<group>"; };
 		D906B993FB652152809EFA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugHUDView.swift; sourceTree = "<group>"; };
@@ -277,6 +279,7 @@
 		D7E87AE6012ADF5869CEAD6D /* Tracking */ = {
 			isa = PBXGroup;
 			children = (
+				D658993865C10161CA56CC4A /* CorrelationTracker.swift */,
 				1075BAAE23507C186CDEE12E /* DetectionService.swift */,
 				A0AB0B54E07A48924CECB402 /* TrackingEngine.swift */,
 			);
@@ -396,6 +399,7 @@
 				FBB97D9C7659CEEA9AD9EB16 /* CameraService.swift in Sources */,
 				4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */,
 				40A107DA7A2E457639E7D950 /* CameraViewModel.swift in Sources */,
+				C3CF68BA783ABFDC91CA5D58 /* CorrelationTracker.swift in Sources */,
 				B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */,
 				9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */,
 				C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */,

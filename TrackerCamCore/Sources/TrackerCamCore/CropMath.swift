@@ -42,8 +42,13 @@ public enum CropMath {
     /// dimension is at least that fraction of the source — so the framing never zooms into a
     /// close-up that loses the surrounding environment (plan §10 / improvements #36). The growth is
     /// capped so the crop never exceeds the source. 0 (the default) disables the floor.
+    ///
+    /// `maxSizeFraction` (0…1] caps the crop *below* the source: the crop is shrunk uniformly so each
+    /// dimension is at most that fraction of the source — leaving pan room so the crop can actually
+    /// move to centre the subject (a full-frame crop is pinned at the source centre and can't track).
+    /// 1 (the default) disables the cap.
     public static func clampedCrop(center: TCPoint, size: TCSize, source: TCRect,
-                                   minSizeFraction: Double = 0) -> TCRect {
+                                   minSizeFraction: Double = 0, maxSizeFraction: Double = 1) -> TCRect {
         var w = size.width
         var h = size.height
         // Scale uniformly to fit the source if either dimension overflows.
@@ -57,6 +62,11 @@ public enum CropMath {
             let grow = min(max(1.0, needed), maxFit)
             w *= grow
             h *= grow
+        }
+        // Cap the crop below the source so it has room to pan and centre the subject.
+        if maxSizeFraction < 1 {
+            let over = max(w / (maxSizeFraction * source.width), h / (maxSizeFraction * source.height))
+            if over > 1 { w /= over; h /= over }
         }
         // Translate so the crop stays inside the source bounds.
         let x = clamp(center.x - w / 2, low: source.minX, high: source.maxX - w)

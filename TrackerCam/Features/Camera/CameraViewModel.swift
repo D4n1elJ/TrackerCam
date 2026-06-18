@@ -113,6 +113,7 @@ final class CameraViewModel {
     private var cachedFreeBytes: Int64 = .max
     private var lastKnownCenter: TCPoint?
     private var lastVelocity: TCPoint = .zero
+    private var subjectCenterEMA: TCPoint?   // smoothed subject center for stable crop centering
     private var lostSince: Double?
     private var recordStartPTS: CMTime = .invalid
 
@@ -542,8 +543,18 @@ final class CameraViewModel {
         if let subject = result.subjectPixelRect {
             // Follow the tracked subject even when the Kalman smoothed center isn't available (e.g.
             // VNTrackObjectRequest yields a box but no smoothed center) — otherwise the crop stays
-            // pinned at frame center and never follows the horse.
-            let center = result.smoothedCenter ?? subject.center
+            // pinned at frame center and never follows the horse. Smooth the (often jittery) raw
+            // center with an EMA so the crop sits stably centered instead of chasing per-frame noise.
+            let raw = result.smoothedCenter ?? subject.center
+            let prev = subjectCenterEMA
+            let smoothed = prev.map {
+                TCPoint(x: $0.x + (raw.x - $0.x) * 0.35, y: $0.y + (raw.y - $0.y) * 0.35)
+            } ?? raw
+            subjectCenterEMA = smoothed
+            // Predict ahead by the smoothed per-frame velocity to compensate pan lag, so a moving
+            // (cantering) subject stays centered instead of trailing behind the crop.
+            let vel = prev.map { TCPoint(x: smoothed.x - $0.x, y: smoothed.y - $0.y) } ?? .zero
+            let center = TCPoint(x: smoothed.x + vel.x * 6, y: smoothed.y + vel.y * 6)
             let padded = subject.expanded(byFraction: s.subjectPadding)
             let size = s.dynamicZoomEnabled
                 ? CropMath.requiredCropSize(forPaddedSubject: padded,
@@ -551,9 +562,9 @@ final class CameraViewModel {
                                             outputAspect: aspect)
                 : Self.outputSizeTC(for: s.aspectRatio)
             trackSize = size
-            trackCenter = CropMath.compositionCenter(
-                subjectCenter: center, velocity: result.velocity, cropSize: size,
-                leadFraction: s.compositionLeadFraction, verticalOffsetFraction: s.verticalCompositionOffset)
+            // Target the subject center exactly so it sits in the middle of the frame (no cinematic
+            // lead/offset) — the goal is the tracked object centered, not lead-room composition.
+            trackCenter = center
         }
 
         // Plan the desired crop per tracking state (incl. lost ladder), then rate-limit it (plan §10).

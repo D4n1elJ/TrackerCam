@@ -12,6 +12,7 @@ public struct CropController: Sendable {
     private let zoomInHysteresisBand: Double  // crop must shrink past this fraction to zoom in
     private let zoomInHoldSeconds: Double     // ...and stay there this long before zooming in
     public var minCropFraction: Double        // floor on crop size as a fraction of the source
+    public var maxCropFraction: Double        // cap on crop size — leaves pan room to centre the subject
 
     private var currentCenter: TCPoint = .zero
     private var currentSize: TCSize = .zero
@@ -22,13 +23,15 @@ public struct CropController: Sendable {
                 maxZoomInRate: Double = 0.25,
                 zoomInHysteresisBand: Double = 0.05,
                 zoomInHoldSeconds: Double = 0.15,
-                minCropFraction: Double = 0.45) {
+                minCropFraction: Double = 0.45,
+                maxCropFraction: Double = 0.7) {
         self.maxCenterSpeed = maxCenterSpeed
         self.maxZoomOutRate = maxZoomOutRate
         self.maxZoomInRate = maxZoomInRate
         self.zoomInHysteresisBand = zoomInHysteresisBand
         self.zoomInHoldSeconds = zoomInHoldSeconds
         self.minCropFraction = minCropFraction
+        self.maxCropFraction = maxCropFraction
     }
 
     public mutating func reset() {
@@ -52,7 +55,8 @@ public struct CropController: Sendable {
         }
         // Clamp into the source (enforcing the close-up floor) and continue from the actual result.
         let crop = CropMath.clampedCrop(center: currentCenter, size: currentSize,
-                                        source: source, minSizeFraction: minCropFraction)
+                                        source: source, minSizeFraction: minCropFraction,
+                                        maxSizeFraction: maxCropFraction)
         currentCenter = crop.center
         currentSize = crop.size
         return crop

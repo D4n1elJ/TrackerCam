@@ -105,6 +105,18 @@ actor TrackingEngine {
         var frameVisionError: String?
 
         // Frame-to-frame tracking via Vision (established API).
+        //
+        // TRACKER SWAP POINT (codex / CorrelationTracker integration) — see CorrelationTracker.swift.
+        // Vision's VNTrackObjectRequest drifts on fast/deformable subjects and is ANE-backed, so it
+        // can't run in the simulator. The plan is to replace this block with the CPU correlation
+        // tracker behind the same contract:
+        //   - seed: when `currentSeed` is first set, create `CorrelationTracker(luma:box:source:)`
+        //     from the locked luma plane (LumaPlane.fromLockedPixelBuffer).
+        //   - per frame: `if let box = tracker.update(luma:source:) { measurement = box } else lost`.
+        //   - keep `acceptsVisionMeasurement(...)` as the jump/sanity gate regardless of tracker.
+        //   - reset the tracker wherever `trackingRequest`/`sequenceHandler` are reset today.
+        // Consider a feature flag / `#if targetEnvironment(simulator)` to A/B the two trackers while
+        // tuning, since only the correlation tracker produces measurements in the simulator.
         let desiredLevel: VNRequestTrackingLevel = fast ? .fast : .accurate
         if let seed = currentSeed {
             if trackingRequest == nil || trackingLevel != desiredLevel {
