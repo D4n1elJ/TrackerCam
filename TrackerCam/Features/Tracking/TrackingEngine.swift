@@ -173,10 +173,10 @@ actor TrackingEngine {
     /// the tracker seed and feed its confidence so lock/recovery transitions still progress. The next
     /// `track(...)` re-seeds the Vision tracker from this box. Ignored while idle (no acquisition
     /// requested), matching the tap/refocus-to-acquire model.
-    func applyDetection(pixelRect: TCRect, confidence: Double) {
+    func applyDetection(pixelRect: TCRect, confidence: Double) -> Bool {
         if let seed = currentSeed,
            !Self.acceptsDetectionCorrection(pixelRect, current: seed) {
-            return
+            return false
         }
         currentSeed = pixelRect
         trackingRequest = nil
@@ -185,6 +185,7 @@ actor TrackingEngine {
         if stateMachine.state != .idle {
             stateMachine.observe(confidence: confidence, at: lastSeconds)
         }
+        return true
     }
 
     private static func processNoise(for smoothingStrength: Double) -> Double {

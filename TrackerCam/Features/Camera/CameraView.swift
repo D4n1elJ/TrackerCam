@@ -35,8 +35,13 @@ struct CameraView: View {
                     OverlayView(state: viewModel.trackingState,
                                 subjectRect: viewModel.subjectViewRect,
                                 selectedSeedRect: viewModel.selectedSeedViewRect,
+                                debugDetectionRect: viewModel.debugDetectionViewRect,
+                                debugDetectionAccepted: viewModel.debugDetectionAccepted,
+                                showDebug: showDebugHUD,
                                 hint: viewModel.guidanceHint,
                                 confidence: viewModel.confidence,
+                                outputSize: Self.outputSize(for: viewModel.settingsStore.settings.aspectRatio),
+                                aspectFill: previewAspectFill,
                                 viewSize: geo.size)
 
                     previewTapLayer(size: geo.size)

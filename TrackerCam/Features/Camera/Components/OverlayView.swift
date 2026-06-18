@@ -6,18 +6,26 @@ struct OverlayView: View {
     let state: TrackingState
     let subjectRect: CGRect?     // normalized [0,1] in preview space
     let selectedSeedRect: CGRect?
+    let debugDetectionRect: CGRect?
+    let debugDetectionAccepted: Bool
+    let showDebug: Bool
     let hint: GuidanceEngine.Hint?
     let confidence: Double
+    let outputSize: CGSize
+    let aspectFill: Bool
     let viewSize: CGSize
 
     var body: some View {
         ZStack {
+            if showDebug, let r = debugDetectionRect {
+                debugBox(rect: r,
+                         color: debugDetectionAccepted ? .mint : .orange,
+                         label: debugDetectionAccepted ? "detect accepted" : "detect rejected",
+                         dash: [7, 5])
+            }
+
             if let r = selectedSeedRect {
-                let frame = viewFrame(for: r)
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(.cyan, style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
-                    .frame(width: frame.width, height: frame.height)
-                    .position(x: frame.midX, y: frame.midY)
+                debugBox(rect: r, color: .cyan, label: showDebug ? "tap seed" : nil, dash: [5, 4])
             }
 
             if let r = subjectRect, state != .idle {
@@ -37,6 +45,11 @@ struct OverlayView: View {
                         .frame(width: d, height: d)
                         .position(x: frame.midX, y: frame.midY)
                 }
+
+                if showDebug {
+                    label("track", color: boxColor)
+                        .position(x: frame.midX, y: max(12, frame.minY - 10))
+                }
             }
 
             if let hint, hint.severity != .none {
@@ -47,11 +60,63 @@ struct OverlayView: View {
         .accessibilityHidden(true)
         .animation(.easeOut(duration: 0.12), value: subjectRect)
         .animation(.easeOut(duration: 0.12), value: selectedSeedRect)
+        .animation(.easeOut(duration: 0.12), value: debugDetectionRect)
     }
 
     private func viewFrame(for rect: CGRect) -> CGRect {
-        CGRect(x: rect.minX * viewSize.width, y: rect.minY * viewSize.height,
-               width: rect.width * viewSize.width, height: rect.height * viewSize.height)
+        let draw = textureDrawRect()
+        return CGRect(x: draw.minX + rect.minX * draw.width,
+                      y: draw.minY + rect.minY * draw.height,
+                      width: rect.width * draw.width,
+                      height: rect.height * draw.height)
+    }
+
+    private func textureDrawRect() -> CGRect {
+        guard viewSize.width > 0, viewSize.height > 0,
+              outputSize.width > 0, outputSize.height > 0 else {
+            return CGRect(origin: .zero, size: viewSize)
+        }
+
+        let textureAspect = outputSize.width / outputSize.height
+        let viewAspect = viewSize.width / viewSize.height
+        let drawSize: CGSize
+        if aspectFill {
+            drawSize = viewAspect > textureAspect
+                ? CGSize(width: viewSize.width, height: viewSize.width / textureAspect)
+                : CGSize(width: viewSize.height * textureAspect, height: viewSize.height)
+        } else {
+            drawSize = viewAspect > textureAspect
+                ? CGSize(width: viewSize.height * textureAspect, height: viewSize.height)
+                : CGSize(width: viewSize.width, height: viewSize.width / textureAspect)
+        }
+
+        return CGRect(x: (viewSize.width - drawSize.width) / 2,
+                      y: (viewSize.height - drawSize.height) / 2,
+                      width: drawSize.width,
+                      height: drawSize.height)
+    }
+
+    private func debugBox(rect: CGRect, color: Color, label text: String?, dash: [CGFloat]) -> some View {
+        let frame = viewFrame(for: rect)
+        return ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(color, style: StrokeStyle(lineWidth: 2, dash: dash))
+                .frame(width: frame.width, height: frame.height)
+                .position(x: frame.midX, y: frame.midY)
+            if let text {
+                label(text, color: color)
+                    .position(x: frame.midX, y: max(12, frame.minY - 10))
+            }
+        }
+    }
+
+    private func label(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .foregroundStyle(color)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(.black.opacity(0.65), in: Capsule())
     }
 
     private var boxColor: Color {

@@ -21,6 +21,8 @@ final class CameraViewModel {
     private(set) var trackingState: TrackingState = .idle
     private(set) var subjectViewRect: CGRect?       // in preview-view coordinates
     private(set) var selectedSeedViewRect: CGRect?  // immediate tap-selected seed in preview coords
+    private(set) var debugDetectionViewRect: CGRect?
+    private(set) var debugDetectionAccepted = false
     private(set) var guidanceHint: GuidanceEngine.Hint?
     private(set) var isRecording = false
     private(set) var elapsed: TimeInterval = 0
@@ -58,6 +60,8 @@ final class CameraViewModel {
     private var analysisDims: CGSize = .zero
     private var detectionInFlight = false
     private var detectionTask: Task<Void, Never>?
+    private var lastDetectionPixelRect: TCRect?
+    private var lastDetectionAccepted = false
     private var targetTask: Task<Void, Never>?
     private var stopRecordingTask: Task<Void, Never>?
     private var interruptionTask: Task<Void, Never>?
@@ -253,6 +257,10 @@ final class CameraViewModel {
         lostSince = nil
         selectedSeedViewRect = nil
         subjectViewRect = nil
+        debugDetectionViewRect = nil
+        debugDetectionAccepted = false
+        lastDetectionPixelRect = nil
+        lastDetectionAccepted = false
         trackingState = .idle
         confidence = 0
         targetTask?.cancel()
@@ -476,12 +484,18 @@ final class CameraViewModel {
                 guard self.isCurrentGeneration(generation) else { return }
                 self.recordDetectionLatency(detectMs)
                 if let det {
+                    let accepted: Bool
                     if acquisitionMode == .tap {
-                        await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                        accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
                     } else {
                         await self.trackingEngine.seed(pixelRect: det.pixelRect)
-                        await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                        accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
                     }
+                    self.lastDetectionPixelRect = det.pixelRect
+                    self.lastDetectionAccepted = accepted
+                } else {
+                    self.lastDetectionPixelRect = nil
+                    self.lastDetectionAccepted = false
                 }
             }
         }
@@ -597,6 +611,8 @@ final class CameraViewModel {
             } else if result.state == .idle {
                 subjectViewRect = nil
             }
+            debugDetectionViewRect = lastDetectionPixelRect.map { Self.rectInCrop($0, crop: crop) }
+            debugDetectionAccepted = lastDetectionAccepted
             if result.state != .searching { selectedSeedViewRect = nil }
             guidanceHint = hint
             cropInSourceRect = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
