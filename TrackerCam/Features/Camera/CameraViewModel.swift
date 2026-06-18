@@ -98,9 +98,7 @@ final class CameraViewModel {
     private var trackMsEMA: Double = 0
     private var reframeMsEMA: Double = 0
     private var detectionMsEMA: Double = 0
-    // Faster center pan reduces lag so the crop keeps the moving subject centered (the core default
-    // stays 1.5 for the unit tests; this app instance overrides it).
-    private var cropController = CropController(maxCenterSpeed: 3.5)
+    private var cropController = CropController()
     private let cropPlanner = CropPlanner()
     private var cropMetadataWriter: CropMetadataStreamWriter?
     private var cropMetadataTempURL: URL?
@@ -601,6 +599,12 @@ final class CameraViewModel {
         let crop = cropController.update(dt: dt, desiredCenter: planned.center,
                                          desiredSize: planned.size, source: source)
 
+        // Objective centering metric, sampled EVERY frame (motion centroid vs the rate-limited crop)
+        // so the running average converges. `avg` is the headline number to compare runs.
+        if let centerScore = self.centeringMeter.score(crop: crop, source: sourceSize) {
+            perfLog.notice("center score=\(String(format: "%.2f", centerScore), privacy: .public) avg=\(String(format: "%.3f", self.centeringMeter.scoreEMA), privacy: .public) n=\(self.centeringMeter.samples, privacy: .public)")
+        }
+
         // GPU reframe → preview + record (runs off the main thread; awaits GPU completion).
         let reframeSP = signposter.beginInterval("reframe")
         let reframeT0 = CACurrentMediaTime()
@@ -671,11 +675,6 @@ final class CameraViewModel {
                                       width: crop.width / source.width, height: crop.height / source.height)
             if let sp = result.subjectPixelRect {
                 perfLog.notice("subj scx=\(String(format: "%.2f", sp.center.x / source.width), privacy: .public) scy=\(String(format: "%.2f", sp.center.y / source.height), privacy: .public) cropcx=\(String(format: "%.2f", (crop.minX + crop.width / 2) / source.width), privacy: .public) cropcy=\(String(format: "%.2f", (crop.minY + crop.height / 2) / source.height), privacy: .public) st=\(result.state.rawValue, privacy: .public)")
-            }
-            // Objective centering metric — score the motion centroid (computed earlier) vs the crop.
-            // `avg` is the headline number to compare runs.
-            if let centerScore = self.centeringMeter.score(crop: crop, source: sourceSize) {
-                perfLog.notice("center score=\(String(format: "%.2f", centerScore), privacy: .public) avg=\(String(format: "%.3f", self.centeringMeter.scoreEMA), privacy: .public) n=\(self.centeringMeter.samples, privacy: .public)")
             }
             confidence = result.confidence
             trackingScore = trackingScoreEMA

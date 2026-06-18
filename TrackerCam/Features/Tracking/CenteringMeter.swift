@@ -21,8 +21,8 @@ import TrackerCamCore
 struct CenteringMeter {
     private static let gw = 80          // motion grid width
     private static let gh = 45          // motion grid height (16:9)
-    private static let motionThreshold = 12   // per-cell luma delta to count as motion
-    private static let minMotionMass = 250.0  // ignore frames with too little motion (subject still)
+    private static let motionThreshold = 8    // per-cell luma delta to count as motion
+    private static let minMotionMass = 60.0   // ignore frames with too little motion (subject still)
 
     private var prev: [UInt8]?
     private(set) var scoreEMA: Double = 0
