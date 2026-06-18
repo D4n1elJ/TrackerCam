@@ -64,6 +64,7 @@ struct CameraView: View {
                 if showDebugHUD && !viewModel.permissionDenied {
                     DebugHUDView(fps: viewModel.fps, state: viewModel.trackingState,
                                  confidence: viewModel.confidence, thermal: viewModel.thermalLevelText,
+                                 trackingScore: viewModel.trackingScore,
                                  config: viewModel.effectiveConfigSummary,
                                  visionFailures: viewModel.visionFailureCount,
                                  visionError: viewModel.lastVisionErrorDescription,

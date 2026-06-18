@@ -7,6 +7,7 @@ struct DebugHUDView: View {
     let state: TrackingState
     let confidence: Double
     let thermal: String
+    let trackingScore: Double
     let config: String
     let visionFailures: Int
     let visionError: String?
@@ -18,6 +19,7 @@ struct DebugHUDView: View {
             row("fps", String(format: "%.0f", fps))
             row("state", state.rawValue)
             row("conf", String(format: "%.2f", confidence))
+            row("score", String(format: "%.0f", trackingScore))
             row("thermal", thermal)
             row("fmt", config)
             row("detect", String(format: "%.0fms / %.1fs", detectionMs, detectionInterval))

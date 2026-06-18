@@ -1,7 +1,10 @@
 import Vision
 import CoreML
 import CoreVideo
+import os
 import TrackerCamCore
+
+private let detLog = Logger(subsystem: "com.trackercam.app", category: "detect")
 
 /// Core ML horse/person detection → compound (horse+rider) target selection. Plan §8.
 ///
@@ -117,7 +120,13 @@ final class DetectionService: @unchecked Sendable {
         do {
             try handler.perform([saliencyRequest, humanRequest])
         } catch {
-            return Self.preferredFallback(horseColor: horseColor, motion: motion, foreground: foreground, sourceSize: sourceSize)
+            let r = Self.preferredFallback(horseColor: horseColor, motion: motion, foreground: foreground, sourceSize: sourceSize)
+            if let r {
+                detLog.notice("fallback cx=\(String(format: "%.2f", r.pixelRect.center.x / sourceSize.width), privacy: .public) cy=\(String(format: "%.2f", r.pixelRect.center.y / sourceSize.height), privacy: .public) brown=\(horseColor != nil, privacy: .public) motion=\(motion != nil, privacy: .public) fg=\(foreground != nil, privacy: .public)")
+            } else {
+                detLog.notice("fallback=nil brown=\(horseColor != nil, privacy: .public) motion=\(motion != nil, privacy: .public) fg=\(foreground != nil, privacy: .public)")
+            }
+            return r
         }
 
         let frameCenter = TCPoint(x: sourceSize.width / 2, y: sourceSize.height / 2)
@@ -126,6 +135,8 @@ final class DetectionService: @unchecked Sendable {
             (VisionGeometry.pixelRect(fromNormalized: TCRect($0.boundingBox), imageSize: sourceSize),
              Double($0.confidence))
         } ?? []
+        let salientCount = (saliencyRequest.results?.first as? VNSaliencyImageObservation)?.salientObjects?.count ?? 0
+        detLog.notice("acq people=\(people.count, privacy: .public) salient=\(salientCount, privacy: .public) motion=\(motion != nil, privacy: .public) brown=\(horseColor != nil, privacy: .public)")
 
         guard let saliency = saliencyRequest.results?.first as? VNSaliencyImageObservation,
               let objects = saliency.salientObjects, !objects.isEmpty else {
@@ -166,13 +177,42 @@ final class DetectionService: @unchecked Sendable {
             return foreground
         }
 
-        // Associate a rider: a detected human overlapping the subject, or directly above it.
-        let rider = people.map(\.0).first {
-            Self.isRider($0, associatedWith: best.0)
+        // Associate a rider with the best salient subject (overlapping or directly above it).
+        if let rider = people.map(\.0).first(where: { Self.isRider($0, associatedWith: best.0) }) {
+            let compound = CropMath.compoundSubject(horse: best.0, rider: rider, padding: 0)
+            return Detection(pixelRect: compound, confidence: best.1)
         }
 
-        let compound = CropMath.compoundSubject(horse: best.0, rider: rider, padding: 0)
+        // A rider is visible but no salient/motion region landed on the horse — the most common
+        // failure (saliency latches onto bright background structure, not the horse). Anchor on the
+        // most central rider and extend into a horse-and-rider envelope so the box lands on the subject.
+        if let rider = Self.mostCentralPerson(people, frameCenter: frameCenter)?.0 {
+            return Detection(pixelRect: Self.horseAndRiderEnvelope(rider: rider, source: sourceSize),
+                             confidence: 0.6)
+        }
+
+        let compound = CropMath.compoundSubject(horse: best.0, rider: nil, padding: 0)
         return Detection(pixelRect: compound, confidence: best.1)
+    }
+
+    /// The person nearest the frame center — the rider the operator is following.
+    private static func mostCentralPerson(_ people: [(TCRect, Double)], frameCenter: TCPoint) -> (TCRect, Double)? {
+        people.min {
+            let a = $0.0.center, b = $1.0.center
+            let da = (a.x - frameCenter.x) * (a.x - frameCenter.x) + (a.y - frameCenter.y) * (a.y - frameCenter.y)
+            let db = (b.x - frameCenter.x) * (b.x - frameCenter.x) + (b.y - frameCenter.y) * (b.y - frameCenter.y)
+            return da < db
+        }
+    }
+
+    /// Horse-and-rider envelope from a rider box: the horse is longer than and extends below the
+    /// rider, so widen ~2.2× and extend down ~2.4×, clamped to the source frame.
+    private static func horseAndRiderEnvelope(rider r: TCRect, source: TCSize) -> TCRect {
+        let w = min(r.width * 2.2, source.width)
+        let h = min(r.height * 2.4, source.height)
+        let x = max(0, min(r.center.x - w / 2, source.width - w))
+        let y = max(0, min(r.minY - r.height * 0.1, source.height - h))
+        return TCRect(x: x, y: y, width: w, height: h)
     }
 
     private static func isRider(_ person: TCRect, associatedWith subject: TCRect) -> Bool {

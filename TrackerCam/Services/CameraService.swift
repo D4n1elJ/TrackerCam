@@ -78,12 +78,6 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private(set) var sessionGeneration: UInt64 = 0
     private(set) var effective: EffectiveConfiguration?
 
-    #if targetEnvironment(simulator)
-    // The simulator can't deliver camera buffers to the data output, so drive the pipeline from a
-    // bundled clip (sample_horse.mov) for end-to-end tracking/reframe validation.
-    private var debugVideoSource: DebugVideoSource?
-    #endif
-
     /// Capture-interruption callbacks (plan §14). Invoked on the main queue.
     var onInterruption: (@Sendable (CaptureInterruptionReason) -> Void)?
     var onInterruptionEnded: (@Sendable () -> Void)?
@@ -174,13 +168,6 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     private func configureLocked(settings: TrackerSettings) throws {
-        #if targetEnvironment(simulator)
-        // No usable camera capture in the simulator — DebugVideoSource drives the pipeline instead.
-        sessionGeneration &+= 1
-        effective = EffectiveConfiguration(dimensions: CMVideoDimensions(width: 1920, height: 1080),
-                                           frameRate: 30, stabilizationMode: .off,
-                                           colorSpace: .sRGB, isHDR: false)
-        #else
         session.beginConfiguration()
         defer { session.commitConfiguration() }
 
@@ -260,7 +247,6 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             colorSpace: device.activeColorSpace,
             isHDR: device.isVideoHDREnabled
         )
-        #endif
     }
 
     private var rotationLocked = false
@@ -280,32 +266,14 @@ final class CameraService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     func startRunning() {
-        #if targetEnvironment(simulator)
-        if debugVideoSource == nil, let url = Self.simulatorFixtureURL {
-            debugVideoSource = DebugVideoSource(router: router, url: url)
-        }
-        debugVideoSource?.start()
-        #else
         sessionQueue.async { if !self.session.isRunning { self.session.startRunning() } }
-        #endif
     }
 
     func stopRunning() {
-        #if targetEnvironment(simulator)
-        debugVideoSource?.stop()
-        #else
         sessionQueue.async { if self.session.isRunning { self.session.stopRunning() } }
-        #endif
     }
 
     // MARK: - Format selection helpers
-
-#if targetEnvironment(simulator)
-    private static var simulatorFixtureURL: URL? {
-        if let url = SimulatorVideoFeeder.fixtureURL { return url }
-        return Bundle.main.url(forResource: "sample_horse", withExtension: "mov")
-    }
-#endif
 
     private static func targetFPS(_ preset: FrameRatePreset, format: AVCaptureDevice.Format) -> Int {
         switch preset {

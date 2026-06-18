@@ -31,6 +31,7 @@ final class CameraViewModel {
     /// Current crop window as a fraction of the source frame, for the mini-map (plan §12).
     private(set) var cropInSourceRect: CGRect?
     private(set) var confidence: Double = 0
+    private(set) var trackingScore: Double = 0
     private(set) var fps: Double = 0
     private(set) var visionFailureCount = 0
     private(set) var lastVisionErrorDescription: String?
@@ -62,6 +63,7 @@ final class CameraViewModel {
     private var detectionTask: Task<Void, Never>?
     private var lastDetectionPixelRect: TCRect?
     private var lastDetectionAccepted = false
+    private var trackingScoreEMA: Double = 0
     private var targetTask: Task<Void, Never>?
     private var stopRecordingTask: Task<Void, Never>?
     private var interruptionTask: Task<Void, Never>?
@@ -177,6 +179,16 @@ final class CameraViewModel {
             }
         }
 
+#if targetEnvironment(simulator)
+        // Deterministic simulator testing: the sim's camera (when present) can't deliver buffers to
+        // the data output and is nondeterministic, so ALWAYS drive the pipeline from the fixture clip
+        // when one is bundled. This is the reliable way to validate tracking end-to-end in the sim.
+        if let fixtureURL = SimulatorVideoFeeder.fixtureURL {
+            effectiveConfigSummary = "Fixture video"
+            simulatorVideoFeeder?.start(url: fixtureURL)
+            return
+        }
+#endif
         do {
             try await camera.configure(settings: settingsStore.settings)
             if let e = camera.effective {
@@ -184,14 +196,6 @@ final class CameraViewModel {
             }
             camera.startRunning()
         } catch {
-#if targetEnvironment(simulator)
-            if case CameraService.CameraError.noCamera = error,
-               let fixtureURL = SimulatorVideoFeeder.fixtureURL {
-                effectiveConfigSummary = "Fixture video"
-                simulatorVideoFeeder?.start(url: fixtureURL)
-                return
-            }
-#endif
             effectiveConfigSummary = "Camera config failed: \(error)"
         }
     }
@@ -474,6 +478,7 @@ final class CameraViewModel {
             let thr = s.confidenceThreshold
             let generation = lifecycleGeneration
             let acquisitionMode = s.acquisitionMode
+            let shouldBootstrapDetection = trackingState == .idle || trackingState == .lost || trackingScoreEMA < 25
             detectionTask = Task { [weak self, detector, visionPayload] in
                 let detectT0 = CACurrentMediaTime()
                 let det = try? detector.detectCompoundTarget(in: visionPayload.pixelBuffer,
@@ -487,8 +492,12 @@ final class CameraViewModel {
                     let accepted: Bool
                     if acquisitionMode == .tap {
                         accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
-                    } else {
+                    } else if shouldBootstrapDetection {
                         await self.trackingEngine.seed(pixelRect: det.pixelRect)
+                        accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                    } else if self.trackingScoreEMA >= 70, det.confidence < thr {
+                        accepted = false
+                    } else {
                         accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
                     }
                     self.lastDetectionPixelRect = det.pixelRect
@@ -518,11 +527,23 @@ final class CameraViewModel {
             lostSince = nil
         }
         let secondsSinceLost = lostSince.map { t - $0 } ?? 0
+        trackingScoreEMA = Self.trackingScore(
+            result: result,
+            lastDetection: lastDetectionPixelRect,
+            detectionAccepted: lastDetectionAccepted,
+            source: source,
+            threshold: s.confidenceThreshold,
+            previous: trackingScoreEMA
+        )
 
         // Active composed target when we actually have a subject (tracking/locked).
         var trackCenter: TCPoint?
         var trackSize: TCSize?
-        if let subject = result.subjectPixelRect, let center = result.smoothedCenter {
+        if let subject = result.subjectPixelRect {
+            // Follow the tracked subject even when the Kalman smoothed center isn't available (e.g.
+            // VNTrackObjectRequest yields a box but no smoothed center) — otherwise the crop stays
+            // pinned at frame center and never follows the horse.
+            let center = result.smoothedCenter ?? subject.center
             let padded = subject.expanded(byFraction: s.subjectPadding)
             let size = s.dynamicZoomEnabled
                 ? CropMath.requiredCropSize(forPaddedSubject: padded,
@@ -617,7 +638,11 @@ final class CameraViewModel {
             guidanceHint = hint
             cropInSourceRect = CGRect(x: crop.minX / source.width, y: crop.minY / source.height,
                                       width: crop.width / source.width, height: crop.height / source.height)
+            if let sp = result.subjectPixelRect {
+                perfLog.notice("subj scx=\(String(format: "%.2f", sp.center.x / source.width), privacy: .public) scy=\(String(format: "%.2f", sp.center.y / source.height), privacy: .public) cropcx=\(String(format: "%.2f", (crop.minX + crop.width / 2) / source.width), privacy: .public) cropcy=\(String(format: "%.2f", (crop.minY + crop.height / 2) / source.height), privacy: .public) st=\(result.state.rawValue, privacy: .public)")
+            }
             confidence = result.confidence
+            trackingScore = trackingScoreEMA
             fps = smoothedFPS
             visionFailureCount = result.visionFailureCount
             lastVisionErrorDescription = result.lastVisionErrorDescription
@@ -657,6 +682,55 @@ final class CameraViewModel {
                       y: crop.minY * source.height,
                       width: crop.width * source.width,
                       height: crop.height * source.height)
+    }
+
+    /// 0...100 target-quality estimate for debug and future self-correction. A good score means
+    /// Vision is confident, the box size is plausible, and detector corrections agree with tracking.
+    private static func trackingScore(result: TrackingEngine.TrackingResult,
+                                      lastDetection: TCRect?,
+                                      detectionAccepted: Bool,
+                                      source: TCRect,
+                                      threshold: Double,
+                                      previous: Double) -> Double {
+        guard let subject = result.subjectPixelRect, subject.isFiniteAndPositive else {
+            return previous * 0.80
+        }
+
+        let stateScore: Double
+        switch result.state {
+        case .locked: stateScore = 1.0
+        case .tracking: stateScore = 0.85
+        case .searching: stateScore = 0.35
+        case .lost: stateScore = 0.05
+        case .idle: stateScore = 0.0
+        }
+
+        let confidenceScore = min(1.0, result.confidence / max(0.05, threshold))
+        let areaFraction = subject.area / max(1, source.area)
+        let sizeScore: Double
+        if areaFraction < 0.002 || areaFraction > 0.30 {
+            sizeScore = 0.05
+        } else if areaFraction < 0.006 || areaFraction > 0.18 {
+            sizeScore = 0.45
+        } else {
+            sizeScore = 1.0
+        }
+
+        let agreementScore: Double
+        if let lastDetection {
+            let overlap = subject.iou(lastDetection)
+            let dx = subject.center.x - lastDetection.center.x
+            let dy = subject.center.y - lastDetection.center.y
+            let distance = hypot(dx, dy)
+            let distanceScore = 1.0 - min(1.0, distance / max(hypot(subject.width, subject.height), 1))
+            agreementScore = detectionAccepted ? max(overlap, distanceScore) : min(0.25, max(overlap, distanceScore) * 0.5)
+        } else {
+            agreementScore = result.state == .locked || result.state == .tracking ? 0.55 : 0.20
+        }
+
+        let raw = 100.0 * (0.35 * stateScore + 0.25 * confidenceScore + 0.20 * sizeScore + 0.20 * agreementScore)
+        let alpha = raw >= previous ? 0.28 : 0.45
+        return min(100, max(0, previous + (raw - previous) * alpha))
     }
 
     /// Analysis-buffer size: source aspect preserved, scaled so the long side is ~1280px. Keeping the

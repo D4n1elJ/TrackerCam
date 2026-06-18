@@ -19,3 +19,5 @@ xcuserdata/
 # Local-only sim test clip (large; not committed)
 TrackerCam/Resources/sample_horse.mov
 IMG_*.MOV
+
+TrackerCam/Resources/SimulatorFixture.mov
