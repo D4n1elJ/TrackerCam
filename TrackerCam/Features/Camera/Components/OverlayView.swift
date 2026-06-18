@@ -64,36 +64,13 @@ struct OverlayView: View {
     }
 
     private func viewFrame(for rect: CGRect) -> CGRect {
-        let draw = textureDrawRect()
+        let draw = PreviewGeometry.textureDrawRect(viewSize: viewSize,
+                                                   outputSize: outputSize,
+                                                   aspectFill: aspectFill)
         return CGRect(x: draw.minX + rect.minX * draw.width,
                       y: draw.minY + rect.minY * draw.height,
                       width: rect.width * draw.width,
                       height: rect.height * draw.height)
-    }
-
-    private func textureDrawRect() -> CGRect {
-        guard viewSize.width > 0, viewSize.height > 0,
-              outputSize.width > 0, outputSize.height > 0 else {
-            return CGRect(origin: .zero, size: viewSize)
-        }
-
-        let textureAspect = outputSize.width / outputSize.height
-        let viewAspect = viewSize.width / viewSize.height
-        let drawSize: CGSize
-        if aspectFill {
-            drawSize = viewAspect > textureAspect
-                ? CGSize(width: viewSize.width, height: viewSize.width / textureAspect)
-                : CGSize(width: viewSize.height * textureAspect, height: viewSize.height)
-        } else {
-            drawSize = viewAspect > textureAspect
-                ? CGSize(width: viewSize.height * textureAspect, height: viewSize.height)
-                : CGSize(width: viewSize.width, height: viewSize.width / textureAspect)
-        }
-
-        return CGRect(x: (viewSize.width - drawSize.width) / 2,
-                      y: (viewSize.height - drawSize.height) / 2,
-                      width: drawSize.width,
-                      height: drawSize.height)
     }
 
     private func debugBox(rect: CGRect, color: Color, label text: String?, dash: [CGFloat]) -> some View {

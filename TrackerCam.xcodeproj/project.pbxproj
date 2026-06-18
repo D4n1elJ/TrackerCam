@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		131C7D899970C880250999FB /* PreviewGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D79DF154111C4663A0B59A /* PreviewGeometryTests.swift */; };
 		147948DE666FFC70EA2A65A0 /* OverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74883230443D7FDBA4794DC /* OverlayView.swift */; };
 		19B2CD5BDA8A88B68FD0EAEA /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C523EDBAE8290E6E82220F /* ReplayView.swift */; };
 		1DBF4814F72C6547D7314141 /* TrackingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AB0B54E07A48924CECB402 /* TrackingEngine.swift */; };
@@ -93,6 +94,7 @@
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
 		E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		E4D79DF154111C4663A0B59A /* PreviewGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewGeometryTests.swift; sourceTree = "<group>"; };
 		E7FDE4AF183CBEBACBAC4432 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F0170BB81D7A521A10733D9D /* MetricsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsService.swift; sourceTree = "<group>"; };
 		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -123,6 +125,7 @@
 			isa = PBXGroup;
 			children = (
 				976243AA8EE646AE77771C54 /* CameraCapabilityTests.swift */,
+				E4D79DF154111C4663A0B59A /* PreviewGeometryTests.swift */,
 			);
 			path = TrackerCamTests;
 			sourceTree = "<group>";
@@ -440,6 +443,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4F7AA5E0B9E87A2D44E9C56B /* CameraCapabilityTests.swift in Sources */,
+				131C7D899970C880250999FB /* PreviewGeometryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

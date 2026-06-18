@@ -98,7 +98,9 @@ final class CameraViewModel {
     private var trackMsEMA: Double = 0
     private var reframeMsEMA: Double = 0
     private var detectionMsEMA: Double = 0
-    private var cropController = CropController()
+    // Faster center pan reduces lag so the crop keeps the moving subject centered (the core default
+    // stays 1.5 for the unit tests; this app instance overrides it).
+    private var cropController = CropController(maxCenterSpeed: 3.5)
     private let cropPlanner = CropPlanner()
     private var cropMetadataWriter: CropMetadataStreamWriter?
     private var cropMetadataTempURL: URL?
