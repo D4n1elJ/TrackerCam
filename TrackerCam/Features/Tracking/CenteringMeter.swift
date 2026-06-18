@@ -27,10 +27,12 @@ struct CenteringMeter {
     private var prev: [UInt8]?
     private(set) var scoreEMA: Double = 0
     private(set) var samples = 0
+    /// Latest motion centroid in normalized [0,1] source coords (nil if too little motion).
+    private(set) var centroidNorm: (x: Double, y: Double)?
 
-    /// Returns this frame's centering score (0…1), or nil if there isn't enough motion to judge.
-    /// `crop` is the output window in source pixels; `luma` is the full source frame's Y plane.
-    mutating func measure(luma: LumaPlane, crop: TCRect, source: TCSize) -> Double? {
+    /// Compute the motion centroid from this frame vs the previous one. Call once per frame, BEFORE
+    /// the crop decision, so the result can both steer the crop and be scored. Updates `centroidNorm`.
+    mutating func updateCentroid(luma: LumaPlane) {
         var grid = [UInt8](repeating: 0, count: Self.gw * Self.gh)
         for j in 0..<Self.gh {
             let sy = (Double(j) + 0.5) / Double(Self.gh) * Double(luma.height)
@@ -40,9 +42,8 @@ struct CenteringMeter {
             }
         }
         defer { prev = grid }
-        guard let p = prev, p.count == grid.count else { return nil }
+        guard let p = prev, p.count == grid.count else { centroidNorm = nil; return }
 
-        // Weighted motion centroid in normalized [0,1] source coords.
         var sumX = 0.0, sumY = 0.0, sumW = 0.0
         for j in 0..<Self.gh {
             for i in 0..<Self.gw {
@@ -55,20 +56,25 @@ struct CenteringMeter {
                 }
             }
         }
-        guard sumW >= Self.minMotionMass, source.width > 0, source.height > 0 else { return nil }
+        centroidNorm = sumW >= Self.minMotionMass ? (sumX / sumW, sumY / sumW) : nil
+    }
 
-        let centroidX = sumX / sumW
-        let centroidY = sumY / sumW
-        let cropCenterX = crop.midX / source.width
-        let cropCenterY = crop.midY / source.height
+    /// The motion centroid in source pixels (for steering the crop), if available.
+    func centroidPixels(source: TCSize) -> TCPoint? {
+        guard let c = centroidNorm else { return nil }
+        return TCPoint(x: c.x * source.width, y: c.y * source.height)
+    }
+
+    /// Score how centered the latest motion centroid is in `crop` (call after the crop is decided).
+    mutating func score(crop: TCRect, source: TCSize) -> Double? {
+        guard let c = centroidNorm, source.width > 0, source.height > 0 else { return nil }
         let halfX = (crop.width / 2) / source.width
         let halfY = (crop.height / 2) / source.height
-        let px = halfX > 0 ? (centroidX - cropCenterX) / halfX : 0
-        let py = halfY > 0 ? (centroidY - cropCenterY) / halfY : 0
-        let score = max(0, 1 - (px * px + py * py).squareRoot())
-
+        let px = halfX > 0 ? (c.x - crop.midX / source.width) / halfX : 0
+        let py = halfY > 0 ? (c.y - crop.midY / source.height) / halfY : 0
+        let s = max(0, 1 - (px * px + py * py).squareRoot())
         samples += 1
-        scoreEMA = samples == 1 ? score : scoreEMA * 0.95 + score * 0.05
-        return score
+        scoreEMA = samples == 1 ? s : scoreEMA * 0.95 + s * 0.05
+        return s
     }
 }

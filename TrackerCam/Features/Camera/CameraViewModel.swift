@@ -538,6 +538,15 @@ final class CameraViewModel {
             previous: trackingScoreEMA
         )
 
+        // Motion centroid of the moving subject (computed once/frame on the source luma) — used both
+        // to steer the crop and to score centering.
+        CVPixelBufferLockBaseAddress(payload.pixelBuffer, .readOnly)
+        if let lp = LumaPlane.fromLockedPixelBuffer(payload.pixelBuffer) {
+            centeringMeter.updateCentroid(luma: lp)
+        }
+        CVPixelBufferUnlockBaseAddress(payload.pixelBuffer, .readOnly)
+        let motionCenter = centeringMeter.centroidPixels(source: sourceSize)
+
         // Active composed target when we actually have a subject (tracking/locked).
         var trackCenter: TCPoint?
         var trackSize: TCSize?
@@ -566,6 +575,14 @@ final class CameraViewModel {
             // Target the subject center exactly so it sits in the middle of the frame (no cinematic
             // lead/offset) — the goal is the tracked object centered, not lead-room composition.
             trackCenter = center
+        }
+
+        // Motion-centering: the horse is the moving object, so the motion centroid is the most
+        // reliable "where is the subject" signal against a static arena. Center the crop on it
+        // (overriding the tracker, which drifts) so the subject sits in the middle of the output.
+        if let motionCenter {
+            trackCenter = motionCenter
+            if trackSize == nil { trackSize = Self.outputSizeTC(for: s.aspectRatio) }
         }
 
         // Plan the desired crop per tracking state (incl. lost ladder), then rate-limit it (plan §10).
@@ -653,13 +670,11 @@ final class CameraViewModel {
             if let sp = result.subjectPixelRect {
                 perfLog.notice("subj scx=\(String(format: "%.2f", sp.center.x / source.width), privacy: .public) scy=\(String(format: "%.2f", sp.center.y / source.height), privacy: .public) cropcx=\(String(format: "%.2f", (crop.minX + crop.width / 2) / source.width), privacy: .public) cropcy=\(String(format: "%.2f", (crop.minY + crop.height / 2) / source.height), privacy: .public) st=\(result.state.rawValue, privacy: .public)")
             }
-            // Objective centering metric (motion-based). `avg` is the headline number to compare runs.
-            CVPixelBufferLockBaseAddress(payload.pixelBuffer, .readOnly)
-            if let lp = LumaPlane.fromLockedPixelBuffer(payload.pixelBuffer),
-               let centerScore = self.centeringMeter.measure(luma: lp, crop: crop, source: sourceSize) {
+            // Objective centering metric — score the motion centroid (computed earlier) vs the crop.
+            // `avg` is the headline number to compare runs.
+            if let centerScore = self.centeringMeter.score(crop: crop, source: sourceSize) {
                 perfLog.notice("center score=\(String(format: "%.2f", centerScore), privacy: .public) avg=\(String(format: "%.3f", self.centeringMeter.scoreEMA), privacy: .public) n=\(self.centeringMeter.samples, privacy: .public)")
             }
-            CVPixelBufferUnlockBaseAddress(payload.pixelBuffer, .readOnly)
             confidence = result.confidence
             trackingScore = trackingScoreEMA
             fps = smoothedFPS
