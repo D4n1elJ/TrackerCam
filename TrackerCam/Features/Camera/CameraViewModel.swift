@@ -114,6 +114,7 @@ final class CameraViewModel {
     private var lastKnownCenter: TCPoint?
     private var lastVelocity: TCPoint = .zero
     private var subjectCenterEMA: TCPoint?   // smoothed subject center for stable crop centering
+    private var centeringMeter = CenteringMeter()   // objective tracking-quality metric (motion-based)
     private var lostSince: Double?
     private var recordStartPTS: CMTime = .invalid
 
@@ -652,6 +653,13 @@ final class CameraViewModel {
             if let sp = result.subjectPixelRect {
                 perfLog.notice("subj scx=\(String(format: "%.2f", sp.center.x / source.width), privacy: .public) scy=\(String(format: "%.2f", sp.center.y / source.height), privacy: .public) cropcx=\(String(format: "%.2f", (crop.minX + crop.width / 2) / source.width), privacy: .public) cropcy=\(String(format: "%.2f", (crop.minY + crop.height / 2) / source.height), privacy: .public) st=\(result.state.rawValue, privacy: .public)")
             }
+            // Objective centering metric (motion-based). `avg` is the headline number to compare runs.
+            CVPixelBufferLockBaseAddress(payload.pixelBuffer, .readOnly)
+            if let lp = LumaPlane.fromLockedPixelBuffer(payload.pixelBuffer),
+               let centerScore = self.centeringMeter.measure(luma: lp, crop: crop, source: sourceSize) {
+                perfLog.notice("center score=\(String(format: "%.2f", centerScore), privacy: .public) avg=\(String(format: "%.3f", self.centeringMeter.scoreEMA), privacy: .public) n=\(self.centeringMeter.samples, privacy: .public)")
+            }
+            CVPixelBufferUnlockBaseAddress(payload.pixelBuffer, .readOnly)
             confidence = result.confidence
             trackingScore = trackingScoreEMA
             fps = smoothedFPS

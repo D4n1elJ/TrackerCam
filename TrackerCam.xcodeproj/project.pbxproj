@@ -19,10 +19,12 @@
 		4F7AA5E0B9E87A2D44E9C56B /* CameraCapabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976243AA8EE646AE77771C54 /* CameraCapabilityTests.swift */; };
 		4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */; };
 		530D9230A80D0176201BF46C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */; };
+		5B1B56F7077751390045F2DC /* CenteringMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEFE90496EC626B16D208019 /* CenteringMeter.swift */; };
 		5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1075BAAE23507C186CDEE12E /* DetectionService.swift */; };
 		616D2DFDCCDEDBC49995089A /* MetricsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0170BB81D7A521A10733D9D /* MetricsService.swift */; };
 		61C20C6AEB426D9A9F42667D /* SidecarPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945DCC1F528C76BD80E3A8A3 /* SidecarPlayback.swift */; };
 		6C8229D2FC823CCBDC11CBA9 /* TrackerCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */; };
+		83220F89EF8BA5B8764100E7 /* PreviewGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5687B193BFA9C6EDF6BA4ED /* PreviewGeometry.swift */; };
 		897E14C4BDCBC09860AABE0D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E5615BCE79D74FD8C4564D /* SettingsView.swift */; };
 		94BA686DC16052BD0FBA4AEB /* MiniMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DE65B51EF3F9197875C4794 /* MiniMapView.swift */; };
 		9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = CA73B230E3F8BD0135FE6ABF /* CropShader.metal */; };
@@ -79,6 +81,8 @@
 		A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameRouter.swift; sourceTree = "<group>"; };
 		A74883230443D7FDBA4794DC /* OverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayView.swift; sourceTree = "<group>"; };
 		A9FF827FE583EA6811CF4F0B /* RecordingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingsView.swift; sourceTree = "<group>"; };
+		B5687B193BFA9C6EDF6BA4ED /* PreviewGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewGeometry.swift; sourceTree = "<group>"; };
+		BEFE90496EC626B16D208019 /* CenteringMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CenteringMeter.swift; sourceTree = "<group>"; };
 		C45DD0B331200F83757EB429 /* SimulatorFixture.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = SimulatorFixture.mov; sourceTree = "<group>"; };
 		C5395877FD4376AADEF82260 /* TrackerCamTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TrackerCamTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA73B230E3F8BD0135FE6ABF /* CropShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CropShader.metal; sourceTree = "<group>"; };
@@ -127,6 +131,7 @@
 			isa = PBXGroup;
 			children = (
 				741ACBFDF07738B5B2F1C5F7 /* Geometry+CoreGraphics.swift */,
+				B5687B193BFA9C6EDF6BA4ED /* PreviewGeometry.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -279,6 +284,7 @@
 		D7E87AE6012ADF5869CEAD6D /* Tracking */ = {
 			isa = PBXGroup;
 			children = (
+				BEFE90496EC626B16D208019 /* CenteringMeter.swift */,
 				D658993865C10161CA56CC4A /* CorrelationTracker.swift */,
 				1075BAAE23507C186CDEE12E /* DetectionService.swift */,
 				A0AB0B54E07A48924CECB402 /* TrackingEngine.swift */,
@@ -399,6 +405,7 @@
 				FBB97D9C7659CEEA9AD9EB16 /* CameraService.swift in Sources */,
 				4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */,
 				40A107DA7A2E457639E7D950 /* CameraViewModel.swift in Sources */,
+				5B1B56F7077751390045F2DC /* CenteringMeter.swift in Sources */,
 				C3CF68BA783ABFDC91CA5D58 /* CorrelationTracker.swift in Sources */,
 				B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */,
 				9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */,
@@ -412,6 +419,7 @@
 				94BA686DC16052BD0FBA4AEB /* MiniMapView.swift in Sources */,
 				ED0B10E4891F3A208DEF8A11 /* OnboardingView.swift in Sources */,
 				147948DE666FFC70EA2A65A0 /* OverlayView.swift in Sources */,
+				83220F89EF8BA5B8764100E7 /* PreviewGeometry.swift in Sources */,
 				CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */,
 				F98C5657A2166E3D76610425 /* RecordingStore.swift in Sources */,
 				E1ED9A4CC67CC2870020B6F4 /* RecordingsView.swift in Sources */,

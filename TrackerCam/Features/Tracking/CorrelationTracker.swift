@@ -31,9 +31,9 @@ final class CorrelationTracker {
 
     private static let tw = 32          // template grid width
     private static let th = 24          // template grid height
-    private static let searchRadius = 28.0   // plane px; per-frame motion is small (detector re-seeds)
+    private static let searchRadius = 44.0   // plane px; wide enough to follow a fast canter
     private static let searchStep = 2.0
-    private static let lostNCC = 0.30   // below this peak correlation ⇒ lost
+    private static let lostNCC = 0.45   // weak/background matches ⇒ lost (detector re-seeds)
     private static let adaptRate: Float = 0.08
 
     /// Peak NCC of the last match (0…1). A confidence proxy.
@@ -75,7 +75,10 @@ final class CorrelationTracker {
         }
 
         confidence = max(0, best)
-        guard best >= Self.lostNCC else { return nil }   // lost → detector re-seeds
+        // Lost if the match is weak (background) or wandered off the frame — detector re-seeds.
+        guard best >= Self.lostNCC,
+              bestX >= 0, bestX <= Double(luma.width),
+              bestY >= 0, bestY <= Double(luma.height) else { return nil }
 
         cx = bestX
         cy = bestY
