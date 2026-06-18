@@ -221,6 +221,7 @@ actor TrackingEngine {
         currentSeed = pixelRect
         trackingRequest = nil
         sequenceHandler = VNSequenceRequestHandler()
+        correlationTracker = nil
         manualSeedTrustFrames = 0
         if stateMachine.state != .idle {
             stateMachine.observe(confidence: confidence, at: lastSeconds)
