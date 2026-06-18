@@ -39,6 +39,16 @@ actor TrackingEngine {
     private var lastVisionErrorDescription: String?
     private var manualSeedTrustFrames = 0
 
+    // CPU correlation-filter tracker (CorrelationTracker.swift — codex implements the algorithm).
+    // Enabled in the simulator, where Vision's ANE-backed tracker can't run; flip the device branch
+    // to `true` once it's proven to out-track VNTrackObjectRequest on hardware.
+    private var correlationTracker: CorrelationTracker?
+    #if targetEnvironment(simulator)
+    private let usesCorrelationTracker = true
+    #else
+    private let usesCorrelationTracker = false
+    #endif
+
     init(settings: TrackerSettings) {
         self.settings = settings
         self.stateMachine = TrackingStateMachine(config: settings.trackingConfig)
@@ -58,6 +68,7 @@ actor TrackingEngine {
         currentSeed = nil
         trackingRequest = nil
         sequenceHandler = VNSequenceRequestHandler()
+        correlationTracker = nil
         manualSeedTrustFrames = 0
         visionFailureCount = 0
         lastVisionErrorDescription = nil
@@ -74,6 +85,7 @@ actor TrackingEngine {
         currentSeed = pixelRect
         trackingRequest = nil          // re-seed Vision tracker on next frame
         sequenceHandler = VNSequenceRequestHandler()
+        correlationTracker = nil       // re-seed correlation tracker on next frame
         manualSeedTrustFrames = 12     // user taps are intentional; let Vision establish its track.
         stateMachine.reset()
         stateMachine.startAcquisition(at: lastSeconds)
@@ -104,21 +116,37 @@ actor TrackingEngine {
         var acceptedMeasurement: TCRect?
         var frameVisionError: String?
 
-        // Frame-to-frame tracking via Vision (established API).
-        //
-        // TRACKER SWAP POINT (codex / CorrelationTracker integration) — see CorrelationTracker.swift.
-        // Vision's VNTrackObjectRequest drifts on fast/deformable subjects and is ANE-backed, so it
-        // can't run in the simulator. The plan is to replace this block with the CPU correlation
-        // tracker behind the same contract:
-        //   - seed: when `currentSeed` is first set, create `CorrelationTracker(luma:box:source:)`
-        //     from the locked luma plane (LumaPlane.fromLockedPixelBuffer).
-        //   - per frame: `if let box = tracker.update(luma:source:) { measurement = box } else lost`.
-        //   - keep `acceptsVisionMeasurement(...)` as the jump/sanity gate regardless of tracker.
-        //   - reset the tracker wherever `trackingRequest`/`sequenceHandler` are reset today.
-        // Consider a feature flag / `#if targetEnvironment(simulator)` to A/B the two trackers while
-        // tuning, since only the correlation tracker produces measurements in the simulator.
+        // --- CPU correlation-filter tracker path (CorrelationTracker.swift) ---
+        // Runs on the luma plane, so it works in the simulator (no ANE) and avoids Vision's drift.
+        // codex implements the algorithm; this wiring drives it behind the same measurement contract.
+        // NOTE: the luma plane is the DOWNSCALED analysis buffer — CorrelationTracker maps the
+        // source-pixel box ↔ plane pixels via (luma.width / source.width). The sanity gate
+        // (acceptsVisionMeasurement) applies regardless of tracker.
+        if usesCorrelationTracker, let seed = currentSeed {
+            CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+            if let luma = LumaPlane.fromLockedPixelBuffer(pixelBuffer) {
+                if correlationTracker == nil {
+                    correlationTracker = CorrelationTracker(luma: luma, box: seed, source: sourceSize)
+                }
+                if let box = correlationTracker?.update(luma: luma, source: sourceSize),
+                   Self.acceptsVisionMeasurement(box, previous: seed, sourceSize: sourceSize,
+                                                 strict: manualSeedTrustFrames > 0) {
+                    subjectPixel = box
+                    acceptedMeasurement = box
+                    confidence = max(confidence, correlationTracker?.confidence ?? 0)
+                    currentSeed = box
+                    if manualSeedTrustFrames > 0 { manualSeedTrustFrames -= 1 }
+                } else {
+                    // Lost / low confidence: drop the filter so it re-seeds from the next detection.
+                    correlationTracker = nil
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
+        }
+
+        // --- Frame-to-frame tracking via Vision (used when the correlation tracker is disabled) ---
         let desiredLevel: VNRequestTrackingLevel = fast ? .fast : .accurate
-        if let seed = currentSeed {
+        if !usesCorrelationTracker, let seed = currentSeed {
             if trackingRequest == nil || trackingLevel != desiredLevel {
                 let normalizedSeed = VisionGeometry.normalizedRect(fromPixel: seed, imageSize: sourceSize)
                 let req = VNTrackObjectRequest(detectedObjectObservation:
