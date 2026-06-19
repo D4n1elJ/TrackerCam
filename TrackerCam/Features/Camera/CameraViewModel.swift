@@ -586,11 +586,12 @@ final class CameraViewModel {
         // most reliable horse/rider target. Keep device behavior appearance-based because camera
         // motion makes whole-frame motion an unsafe target signal there.
         if let motionRect {
-            let paddedMotion = motionRect.expanded(byFraction: max(0.65, s.subjectPadding))
-            trackCenter = paddedMotion.center
+            let subjectMotion = Self.simulatorSubjectRect(fromMotionRect: motionRect, source: sourceSize)
+            let paddedMotion = subjectMotion.expanded(byFraction: max(0.40, s.subjectPadding))
+            trackCenter = subjectMotion.center
             trackSize = CropMath.requiredCropSize(
                 forPaddedSubject: paddedMotion,
-                targetSubjectHeightFraction: min(s.targetSubjectHeight, 0.30),
+                targetSubjectHeightFraction: min(s.targetSubjectHeight, 0.33),
                 outputAspect: aspect
             )
         } else if let motionCenter {
@@ -676,7 +677,14 @@ final class CameraViewModel {
         if t - lastUIPublishT >= 1.0 / 15 {
             lastUIPublishT = t
             trackingState = result.state
+            #if targetEnvironment(simulator)
+            let simulatorMotionViewRect = motionRect
+                .map { Self.simulatorSubjectRect(fromMotionRect: $0, source: sourceSize) }
+                .map { Self.rectInCrop($0, crop: crop) }
+            let trackedRect = simulatorMotionViewRect ?? result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
+            #else
             let trackedRect = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
+            #endif
             if let trackedRect {
                 subjectViewRect = trackedRect
             } else if result.state == .searching, let selectedSeedViewRect {
@@ -734,6 +742,20 @@ final class CameraViewModel {
                       y: crop.minY * source.height,
                       width: crop.width * source.width,
                       height: crop.height * source.height)
+    }
+
+    /// Simulator-only static fixture targeting: frame difference can include jump rails and arena
+    /// shimmer, so clamp its raw extent to a plausible horse+rider box before using it for zoom/UI.
+    private static func simulatorSubjectRect(fromMotionRect rect: TCRect, source: TCSize) -> TCRect {
+        let minW = source.width * 0.08
+        let maxW = source.width * 0.24
+        let minH = source.height * 0.12
+        let maxH = source.height * 0.24
+        let w = min(max(rect.width, minW), maxW)
+        let h = min(max(rect.height, minH), maxH)
+        let x = min(max(rect.center.x - w / 2, 0), max(0, source.width - w))
+        let y = min(max(rect.center.y - h / 2, 0), max(0, source.height - h))
+        return TCRect(x: x, y: y, width: w, height: h)
     }
 
     /// 0...100 target-quality estimate for debug and future self-correction. A good score means
