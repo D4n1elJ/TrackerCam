@@ -549,6 +549,7 @@ final class CameraViewModel {
         }
         CVPixelBufferUnlockBaseAddress(payload.pixelBuffer, .readOnly)
         let motionCenter = centeringMeter.centroidPixels(source: sourceSize)
+        let motionRect = centeringMeter.motionRectPixels(source: sourceSize)
 
         // Active composed target when we actually have a subject (tracking/locked).
         var trackCenter: TCPoint?
@@ -584,12 +585,21 @@ final class CameraViewModel {
         // The simulator validation clip is a static-camera MOV, so frame-difference motion is the
         // most reliable horse/rider target. Keep device behavior appearance-based because camera
         // motion makes whole-frame motion an unsafe target signal there.
-        if let motionCenter {
+        if let motionRect {
+            let paddedMotion = motionRect.expanded(byFraction: max(0.65, s.subjectPadding))
+            trackCenter = paddedMotion.center
+            trackSize = CropMath.requiredCropSize(
+                forPaddedSubject: paddedMotion,
+                targetSubjectHeightFraction: min(s.targetSubjectHeight, 0.30),
+                outputAspect: aspect
+            )
+        } else if let motionCenter {
             trackCenter = motionCenter
-            if trackSize == nil { trackSize = Self.outputSizeTC(for: s.aspectRatio) }
+            trackSize = Self.outputSizeTC(for: s.aspectRatio)
         }
         #else
         _ = motionCenter
+        _ = motionRect
         #endif
 
         // Plan the desired crop per tracking state (incl. lost ladder), then rate-limit it (plan §10).

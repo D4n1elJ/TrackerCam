@@ -74,7 +74,7 @@ final class CorrelationTracker {
             while dy <= Self.searchRadius {
                 var dx = -Self.searchRadius
                 while dx <= Self.searchRadius {
-                    let s = Self.ncc(template, Self.normalized(Self.sample(luma, cx: cx + dx, cy: cy + dy, w: sw, h: sh)))
+                    let s = Self.nccAt(luma, cx: cx + dx, cy: cy + dy, w: sw, h: sh, template: template)
                     if s > best { best = s; bestX = cx + dx; bestY = cy + dy; bestScale = sc }
                     dx += Self.searchStep
                 }
@@ -97,6 +97,7 @@ final class CorrelationTracker {
         // Slow template adaptation (follows gradual appearance change without runaway drift).
         let fresh = Self.normalized(Self.sample(luma, cx: cx, cy: cy, w: bw, h: bh))
         for i in 0..<template.count { template[i] = template[i] * (1 - Self.adaptRate) + fresh[i] * Self.adaptRate }
+        template = Self.normalized(template)   // keep zero-mean unit-norm (nccAt assumes it)
 
         let w = bw / scale, h = bh / scale
         return TCRect(x: cx / scale - w / 2, y: cy / scale - h / 2, width: w, height: h)
@@ -128,6 +129,35 @@ final class CorrelationTracker {
             }
         }
         return out
+    }
+
+    /// NCC of a candidate window against the (zero-mean, unit-norm) `template`, computed in a SINGLE
+    /// pass with NO per-candidate array allocation — the search runs thousands of these per frame, so
+    /// the array allocs in `sample()`+`normalized()` were the real cost (seconds/frame). With a
+    /// zero-mean unit-norm template, NCC = Σ(c·t) / ‖c − mean(c)‖.
+    private static func nccAt(_ luma: LumaPlane, cx: Double, cy: Double, w: Double, h: Double, template: [Float]) -> Double {
+        let x0 = cx - w / 2, y0 = cy - h / 2
+        let stepX = w / Double(tw), stepY = h / Double(th)
+        let bpp = luma.bytesPerPixel
+        let maxX = luma.width - 1, maxY = luma.height - 1
+        var sum: Float = 0, sumSq: Float = 0, dot: Float = 0
+        var idx = 0
+        for j in 0..<th {
+            let iy = min(max(Int(y0 + (Double(j) + 0.5) * stepY), 0), maxY)
+            let row = luma.base + iy * luma.rowBytes
+            for i in 0..<tw {
+                let ix = min(max(Int(x0 + (Double(i) + 0.5) * stepX), 0), maxX)
+                let off = ix * bpp
+                let v: Float = bpp == 1
+                    ? Float(row[off])
+                    : Float((UInt16(row[off]) + UInt16(row[off + 1]) + UInt16(row[off + 2])) / 3)
+                sum += v; sumSq += v * v; dot += v * template[idx]
+                idx += 1
+            }
+        }
+        let n = Float(tw * th)
+        let variance = sumSq - sum * sum / n
+        return variance > 1e-3 ? Double(dot / variance.squareRoot()) : 0
     }
 
     /// Zero-mean, unit-norm (so NCC is a plain dot product, invariant to brightness/contrast).
