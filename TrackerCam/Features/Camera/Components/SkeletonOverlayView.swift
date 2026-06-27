@@ -17,14 +17,18 @@ struct SkeletonOverlayView: View {
                                                        outputSize: outputSize,
                                                        aspectFill: aspectFill)
             for skeleton in skeletons {
-                let pts = skeleton.joints.map { joint in
+                let joints = skeleton.joints
+                let pts = joints.map { joint in
                     CGPoint(x: draw.minX + joint.x * draw.width,
                             y: draw.minY + joint.y * draw.height)
                 }
 
-                // Bones.
+                // Bones — only between joints that are BOTH present this frame (skip absent joints,
+                // which otherwise anchor to the top-left corner and draw stray lines).
                 var bonePath = Path()
-                for bone in skeleton.bones where bone.a < pts.count && bone.b < pts.count {
+                for bone in skeleton.bones
+                where bone.a < joints.count && bone.b < joints.count
+                    && joints[bone.a].isPresent && joints[bone.b].isPresent {
                     bonePath.move(to: pts[bone.a])
                     bonePath.addLine(to: pts[bone.b])
                 }
@@ -32,9 +36,9 @@ struct SkeletonOverlayView: View {
                                with: .color(color(for: skeleton.kind).opacity(0.9)),
                                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
 
-                // Joints.
-                for (i, p) in pts.enumerated() {
-                    let r: CGFloat = 4 + 3 * skeleton.joints[i].confidence
+                // Joints — present ones only.
+                for (i, p) in pts.enumerated() where joints[i].isPresent {
+                    let r: CGFloat = 4 + 3 * joints[i].confidence
                     let rect = CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)
                     context.fill(Path(ellipseIn: rect), with: .color(.white))
                     context.stroke(Path(ellipseIn: rect),

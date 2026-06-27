@@ -79,6 +79,22 @@ struct CameraView: View {
                         .padding(.top, 56).padding(.trailing, 12)
                 }
             }
+            .overlay(alignment: .top) {
+                // Skeleton subject toggle: People / Cat·Dog / Both.
+                if !viewModel.permissionDenied {
+                    Picker("Subjects", selection: Binding(
+                        get: { viewModel.subjectMode },
+                        set: { viewModel.setSubjectMode($0) }
+                    )) {
+                        ForEach(SkeletonSubjectMode.allCases, id: \.self) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 280)
+                    .padding(.top, 12)
+                }
+            }
             .overlay(alignment: .leading) {
                 // Live dynamic-crop control: drag up to zoom in (tighter), down to widen.
                 if !viewModel.permissionDenied && viewModel.settingsStore.settings.dynamicZoomEnabled {

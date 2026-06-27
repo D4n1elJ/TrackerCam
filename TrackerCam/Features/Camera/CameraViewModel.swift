@@ -43,6 +43,8 @@ final class CameraViewModel {
     /// Live skeletons detected this frame (normalized, full-frame). Track/zoom are disabled while we
     /// build the skeleton tracker; this is the primary overlay now.
     private(set) var skeletons: [SkeletonOverlay] = []
+    /// Which subjects the skeleton tracker detects (people / cat-dog / both).
+    private(set) var subjectMode: SkeletonSubjectMode = .both
 
     /// The latest reframed texture for the Metal preview (read by MetalPreviewView).
     private(set) var latestPreviewTexture: MTLTexture?
@@ -280,6 +282,13 @@ final class CameraViewModel {
         confidence = 0
         targetTask?.cancel()
         targetTask = Task { await trackingEngine.clearTarget() }
+    }
+
+    /// Switch which subjects the skeleton tracker looks for.
+    func setSubjectMode(_ m: SkeletonSubjectMode) {
+        subjectMode = m
+        skeletons = []
+        Task { await skeletonTracker.setMode(m) }
     }
 
     func toggleRecording() {

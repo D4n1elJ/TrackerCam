@@ -3,117 +3,198 @@ import CoreVideo
 import CoreGraphics
 import TrackerCamCore
 
-/// A drawable skeleton for one subject in one frame. Joint points are normalized [0,1] in the
-/// displayed (full-frame) image, top-left origin — so the overlay maps them with the same
-/// `PreviewGeometry.textureDrawRect` the box overlay uses. `bones` index into `joints`.
+/// Which subjects to detect. Exposed to the UI as a segmented toggle.
+enum SkeletonSubjectMode: String, CaseIterable, Sendable {
+    case human, animal, both
+    var label: String {
+        switch self {
+        case .human: return "People"
+        case .animal: return "Cat/Dog"
+        case .both: return "Both"
+        }
+    }
+    var detectsHuman: Bool { self != .animal }
+    var detectsAnimal: Bool { self != .human }
+}
+
+/// A drawable skeleton for one subject in one frame. Joints are a FIXED-LENGTH array aligned to the
+/// kind's master joint order (so the index of a joint is stable frame-to-frame — required for
+/// temporal smoothing). Absent/low-confidence joints have `confidence == 0`. Points are normalized
+/// [0,1] in the displayed full-frame image, top-left origin; `bones` index into `joints`.
 struct SkeletonOverlay: Identifiable, Sendable, Equatable {
     enum Kind: Sendable { case human, animal }
     struct Joint: Sendable, Equatable {
         var x: CGFloat
         var y: CGFloat
         var confidence: CGFloat
+        var isPresent: Bool { confidence > 0 }
     }
     struct Bone: Sendable, Equatable { var a: Int; var b: Int }
 
-    let id: Int
+    var id: Int
     let kind: Kind
-    let joints: [Joint]
+    var joints: [Joint]
     let bones: [Bone]
+
+    /// Centroid of present joints (normalized), for matching subjects across frames.
+    var centroid: CGPoint? {
+        let present = joints.filter(\.isPresent)
+        guard !present.isEmpty else { return nil }
+        let n = CGFloat(present.count)
+        return CGPoint(x: present.reduce(0) { $0 + $1.x } / n,
+                       y: present.reduce(0) { $0 + $1.y } / n)
+    }
 }
 
 /// Live, on-device skeleton tracking for the camera feed.
 ///
-/// Runs Vision body-pose on each (downscaled) frame and returns drawable skeletons:
-///   • Humans  — `VNDetectHumanBodyPoseRequest`  (green)
-///   • Cats/dogs — `VNDetectAnimalBodyPoseRequest` (orange, iOS 17+)
+///   • Humans   — `VNDetectHumanBodyPoseRequest`   (green)
+///   • Cats/dogs — `VNDetectAnimalBodyPoseRequest`  (orange, iOS 17+)
 /// Horses have NO native model (they'd need a custom Core ML keypoint model), so they aren't covered.
 ///
-/// An actor so inference runs off the main actor; it returns only Sendable value types, so the
-/// non-Sendable pixel buffer never escapes.
+/// An actor so inference + smoothing run off the main actor; returns only Sendable value types, so the
+/// non-Sendable pixel buffer never escapes. Output is temporally smoothed (EMA per joint, with a short
+/// hold over momentary dropouts) so the overlay doesn't jitter.
 ///
-/// SIMULATOR: body pose is ANE-backed and does NOT run in the simulator (espresso: missing pose
-/// weights) — validate on device.
+/// SIMULATOR: body pose is ANE-backed and does NOT run in the simulator — validate on device.
 actor LiveSkeletonTracker {
-    /// Whether to also run animal (cat/dog) pose each frame. Humans are always detected.
-    var detectAnimals: Bool = true
+    private(set) var mode: SkeletonSubjectMode = .both
+    func setMode(_ m: SkeletonSubjectMode) { mode = m; previous = [] }
 
     private let minConfidence: Float = 0.15
+    /// Current-frame weight for position EMA (lower = smoother, higher = more responsive).
+    private let positionAlpha: CGFloat = 0.5
+    /// Confidence multiplier applied when a joint is missing this frame but was present last frame —
+    /// holds it briefly so a one-frame dropout doesn't flicker the limb.
+    private let dropoutDecay: CGFloat = 0.55
+    /// Max normalized centroid distance for matching a subject to the previous frame.
+    private let matchThreshold: CGFloat = 0.2
 
-    func setDetectAnimals(_ on: Bool) { detectAnimals = on }
+    private var previous: [SkeletonOverlay] = []
 
-    /// Detect skeletons in the (already downscaled) frame. `imageSize` is its pixel size; results are
-    /// normalized to [0,1] so they're resolution-independent for the overlay. Takes the Sendable
-    /// `FramePayload` so the non-Sendable pixel buffer never crosses the actor boundary directly.
+    /// Detect + smooth skeletons in the (already downscaled) frame. Results are normalized [0,1].
     func skeletons(in payload: FramePayload, imageSize: TCSize) -> [SkeletonOverlay] {
         let handler = VNImageRequestHandler(cvPixelBuffer: payload.pixelBuffer, orientation: .up, options: [:])
 
         var requests: [VNRequest] = []
-        let humanRequest = VNDetectHumanBodyPoseRequest()
-        requests.append(humanRequest)
-        let animalRequest = detectAnimals ? VNDetectAnimalBodyPoseRequest() : nil
+        let humanRequest = mode.detectsHuman ? VNDetectHumanBodyPoseRequest() : nil
+        let animalRequest = mode.detectsAnimal ? VNDetectAnimalBodyPoseRequest() : nil
+        if let humanRequest { requests.append(humanRequest) }
         if let animalRequest { requests.append(animalRequest) }
+        guard !requests.isEmpty, (try? handler.perform(requests)) != nil else {
+            previous = []
+            return []
+        }
 
-        guard (try? handler.perform(requests)) != nil else { return [] }
-
-        var out: [SkeletonOverlay] = []
-
-        // Humans (ids 0…).
-        for (i, observation) in (humanRequest.results ?? []).enumerated() {
-            guard let points = try? observation.recognizedPoints(.all) else { continue }
-            if let overlay = Self.makeOverlay(id: i, kind: .human,
-                                              order: Self.humanOrder, bonePairs: Self.humanBonePairs,
-                                              points: points, minConfidence: minConfidence) {
-                out.append(overlay)
+        var raw: [SkeletonOverlay] = []
+        for (i, obs) in (humanRequest?.results ?? []).enumerated() {
+            if let pts = try? obs.recognizedPoints(.all),
+               let o = Self.makeOverlay(id: i, kind: .human, order: Self.humanOrder,
+                                        boneIndices: Self.humanBones, points: pts, minConfidence: minConfidence) {
+                raw.append(o)
+            }
+        }
+        for (i, obs) in (animalRequest?.results ?? []).enumerated() {
+            if let pts = try? obs.recognizedPoints(.all),
+               let o = Self.makeOverlay(id: 1000 + i, kind: .animal, order: Self.animalOrder,
+                                        boneIndices: Self.animalBones, points: pts, minConfidence: minConfidence) {
+                raw.append(o)
             }
         }
 
-        // Cats/dogs (ids 1000…, so they never collide with human ids).
-        if let animalRequest {
-            for (i, observation) in (animalRequest.results ?? []).enumerated() {
-                guard let points = try? observation.recognizedPoints(.all) else { continue }
-                if let overlay = Self.makeOverlay(id: 1000 + i, kind: .animal,
-                                                  order: Self.animalOrder, bonePairs: Self.animalBonePairs,
-                                                  points: points, minConfidence: minConfidence) {
-                    out.append(overlay)
-                }
+        let smoothed = smooth(raw)
+        previous = smoothed
+        return smoothed
+    }
+
+    // MARK: - Temporal smoothing
+
+    private func smooth(_ current: [SkeletonOverlay]) -> [SkeletonOverlay] {
+        guard !previous.isEmpty else { return current }
+        var usedPrev = Set<Int>()
+        var result: [SkeletonOverlay] = []
+        for cur in current {
+            guard let curC = cur.centroid else { result.append(cur); continue }
+            var bestIdx: Int?
+            var bestDist = CGFloat.greatestFiniteMagnitude
+            for (i, prev) in previous.enumerated()
+            where !usedPrev.contains(i) && prev.kind == cur.kind {
+                guard let prevC = prev.centroid else { continue }
+                let d = hypot(curC.x - prevC.x, curC.y - prevC.y)
+                if d < bestDist { bestDist = d; bestIdx = i }
+            }
+            if let bestIdx, bestDist <= matchThreshold {
+                usedPrev.insert(bestIdx)
+                result.append(blend(prev: previous[bestIdx], cur: cur))
+            } else {
+                result.append(cur)
             }
         }
+        return result
+    }
 
+    /// EMA-blend matched skeletons joint-by-joint (indices are stable). Missing current joints fade
+    /// from the previous position so brief dropouts don't flicker.
+    private func blend(prev: SkeletonOverlay, cur: SkeletonOverlay) -> SkeletonOverlay {
+        var joints = cur.joints
+        for i in joints.indices where i < prev.joints.count {
+            let p = prev.joints[i]
+            let c = cur.joints[i]
+            if c.isPresent && p.isPresent {
+                joints[i] = SkeletonOverlay.Joint(
+                    x: p.x + (c.x - p.x) * positionAlpha,
+                    y: p.y + (c.y - p.y) * positionAlpha,
+                    confidence: c.confidence)
+            } else if !c.isPresent && p.isPresent {
+                // Hold the last position with decaying confidence (drops out after a few frames).
+                let held = p.confidence * dropoutDecay
+                joints[i] = SkeletonOverlay.Joint(x: p.x, y: p.y,
+                                                  confidence: held >= CGFloat(minConfidence) ? held : 0)
+            }
+        }
+        var out = cur
+        out.id = prev.id        // keep identity stable across frames for SwiftUI
+        out.joints = joints
         return out
     }
 
-    /// Generic overlay builder shared by human and animal paths. `Name` is the Vision JointName type.
+    // MARK: - Overlay construction (fixed-length, slot-stable)
+
     private static func makeOverlay<Name: Hashable>(
         id: Int,
         kind: SkeletonOverlay.Kind,
         order: [Name],
-        bonePairs: [(Name, Name)],
+        boneIndices: [SkeletonOverlay.Bone],
         points: [Name: VNRecognizedPoint],
         minConfidence: Float
     ) -> SkeletonOverlay? {
         var joints: [SkeletonOverlay.Joint] = []
-        var indexOf: [Name: Int] = [:]
+        joints.reserveCapacity(order.count)
+        var presentCount = 0
         for name in order {
-            guard let p = points[name], p.confidence >= minConfidence else { continue }
-            indexOf[name] = joints.count
-            // Vision: normalized, origin bottom-left → convert to top-left for the overlay.
-            joints.append(SkeletonOverlay.Joint(
-                x: CGFloat(p.location.x),
-                y: CGFloat(1 - p.location.y),
-                confidence: CGFloat(p.confidence)))
-        }
-        guard joints.count >= 3 else { return nil }   // too few joints to be a real subject
-
-        var bones: [SkeletonOverlay.Bone] = []
-        for (a, b) in bonePairs {
-            if let ia = indexOf[a], let ib = indexOf[b] {
-                bones.append(SkeletonOverlay.Bone(a: ia, b: ib))
+            if let p = points[name], p.confidence >= minConfidence {
+                presentCount += 1
+                joints.append(SkeletonOverlay.Joint(x: CGFloat(p.location.x),
+                                                    y: CGFloat(1 - p.location.y),   // bottom-left → top-left
+                                                    confidence: CGFloat(p.confidence)))
+            } else {
+                joints.append(SkeletonOverlay.Joint(x: 0, y: 0, confidence: 0))
             }
         }
-        return SkeletonOverlay(id: id, kind: kind, joints: joints, bones: bones)
+        guard presentCount >= 3 else { return nil }
+        return SkeletonOverlay(id: id, kind: kind, joints: joints, bones: boneIndices)
     }
 
-    // MARK: - Human joint topology
+    /// Resolve name-pair bones into stable index-pair bones against a master order.
+    private static func bones<Name: Hashable>(_ pairs: [(Name, Name)], in order: [Name]) -> [SkeletonOverlay.Bone] {
+        let indexOf = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return pairs.compactMap { a, b in
+            guard let ia = indexOf[a], let ib = indexOf[b] else { return nil }
+            return SkeletonOverlay.Bone(a: ia, b: ib)
+        }
+    }
+
+    // MARK: - Human topology
 
     private static let humanOrder: [VNHumanBodyPoseObservation.JointName] = [
         .nose, .neck,
@@ -125,8 +206,7 @@ actor LiveSkeletonTracker {
         .leftKnee, .rightKnee,
         .leftAnkle, .rightAnkle,
     ]
-
-    private static let humanBonePairs: [(VNHumanBodyPoseObservation.JointName, VNHumanBodyPoseObservation.JointName)] = [
+    private static let humanBones: [SkeletonOverlay.Bone] = bones([
         (.neck, .nose),
         (.neck, .leftShoulder), (.neck, .rightShoulder),
         (.leftShoulder, .leftElbow), (.leftElbow, .leftWrist),
@@ -135,9 +215,9 @@ actor LiveSkeletonTracker {
         (.root, .leftHip), (.root, .rightHip),
         (.leftHip, .leftKnee), (.leftKnee, .leftAnkle),
         (.rightHip, .rightKnee), (.rightKnee, .rightAnkle),
-    ]
+    ], in: humanOrder)
 
-    // MARK: - Animal (cat/dog) joint topology
+    // MARK: - Animal (cat/dog) topology
 
     private static let animalOrder: [VNAnimalBodyPoseObservation.JointName] = [
         .nose, .neck,
@@ -149,17 +229,13 @@ actor LiveSkeletonTracker {
         .rightBackElbow, .rightBackKnee, .rightBackPaw,
         .tailTop, .tailMiddle, .tailBottom,
     ]
-
-    private static let animalBonePairs: [(VNAnimalBodyPoseObservation.JointName, VNAnimalBodyPoseObservation.JointName)] = [
-        // Head + spine.
+    private static let animalBones: [SkeletonOverlay.Bone] = bones([
         (.nose, .neck),
         (.neck, .leftEarTop), (.neck, .rightEarTop),
         (.neck, .tailTop), (.tailTop, .tailMiddle), (.tailMiddle, .tailBottom),
-        // Front legs (hang off the neck/shoulders).
         (.neck, .leftFrontElbow), (.leftFrontElbow, .leftFrontKnee), (.leftFrontKnee, .leftFrontPaw),
         (.neck, .rightFrontElbow), (.rightFrontElbow, .rightFrontKnee), (.rightFrontKnee, .rightFrontPaw),
-        // Back legs (hang off the hips/tail base).
         (.tailTop, .leftBackElbow), (.leftBackElbow, .leftBackKnee), (.leftBackKnee, .leftBackPaw),
         (.tailTop, .rightBackElbow), (.rightBackElbow, .rightBackKnee), (.rightBackKnee, .rightBackPaw),
-    ]
+    ], in: animalOrder)
 }
