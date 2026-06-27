@@ -40,6 +40,9 @@ final class CameraViewModel {
     /// Seconds remaining in the low-storage countdown, nil when not counting down (plan §14).
     private(set) var storageCountdown: Int?
     private(set) var batteryLow = false  // < 20% (plan §15)
+    /// Live skeletons detected this frame (normalized, full-frame). Track/zoom are disabled while we
+    /// build the skeleton tracker; this is the primary overlay now.
+    private(set) var skeletons: [SkeletonOverlay] = []
 
     /// The latest reframed texture for the Metal preview (read by MetalPreviewView).
     private(set) var latestPreviewTexture: MTLTexture?
@@ -54,6 +57,8 @@ final class CameraViewModel {
     private let camera: CameraService
     private let trackingEngine: TrackingEngine
     private let detection: DetectionService
+    /// Live skeleton tracker (Vision body pose). Primary subject path while track/zoom are disabled.
+    private let skeletonTracker = LiveSkeletonTracker()
     private let recordingStore = RecordingStore()
     private var reframe: ReframePipeline?
     /// Full-frame downscaler that produces the ~720p analysis buffer for Vision (plan §6).
@@ -100,7 +105,7 @@ final class CameraViewModel {
     private var detectionMsEMA: Double = 0
     // The app needs a faster center pan than the conservative core default so a cantering subject
     // does not outrun the crop between detector/tracker updates.
-    private var cropController = CropController(maxCenterSpeed: 3.5)
+    private var cropController = CropController(maxCenterSpeed: 4.5)
     private let cropPlanner = CropPlanner()
     private var cropMetadataWriter: CropMetadataStreamWriter?
     private var cropMetadataTempURL: URL?
@@ -255,6 +260,7 @@ final class CameraViewModel {
             selectedSeedViewRect = nil
         }
         cropController.reset()   // snap to the new target rather than slewing from the old crop
+        subjectCenterEMA = nil
         targetTask?.cancel()
         targetTask = Task { await trackingEngine.seed(pixelRect: seed) }
     }
@@ -262,6 +268,7 @@ final class CameraViewModel {
     /// Release the current target (double-tap "let go") and ease back to a wide centered crop.
     func clearTarget() {
         cropController.reset()
+        subjectCenterEMA = nil
         lostSince = nil
         selectedSeedViewRect = nil
         subjectViewRect = nil
@@ -436,7 +443,94 @@ final class CameraViewModel {
 
     // MARK: - Per-frame processing (runs in the consumer task)
 
+    // Skeleton-tracking mode: auto-reframe (ZOOM) and subject TRACKING are intentionally disabled
+    // while we build a robust live skeleton tracker first. The preview shows the FULL frame with the
+    // detected skeleton(s) overlaid. The previous track+zoom pipeline is preserved verbatim below
+    // under `#if false` (`handleLegacyTrackZoom`) so it can be re-enabled.
     private func handle(_ payload: FramePayload) async {
+        let ctx = payload.context
+        let t = ctx.presentationTime.secondsOrZero
+        let sourceSize = TCSize(width: Double(ctx.sourceDimensions.width),
+                                height: Double(ctx.sourceDimensions.height))
+        let source = TCRect(x: 0, y: 0, width: sourceSize.width, height: sourceSize.height)
+
+        // Downscale to a ~720p analysis buffer for pose (running pose on the full 4K frame is too slow).
+        let srcDims = ctx.sourceDimensions
+        if analysisScaler == nil || analysisDims != srcDims {
+            analysisDims = srcDims
+            analysisScaler = ReframePipeline(outputSize: Self.analysisSize(for: srcDims), poolSize: 6)
+        }
+        var poseBuffer = payload.pixelBuffer
+        var poseDims = sourceSize
+        if let a = await analysisScaler?.render(payload: payload, cropPixelRect: source, sourceSize: sourceSize) {
+            poseBuffer = a.pixelBuffer
+            let asz = Self.analysisSize(for: srcDims)
+            poseDims = TCSize(width: Double(asz.width), height: Double(asz.height))
+        }
+        let posePayload = FramePayload(pixelBuffer: poseBuffer, context: ctx)
+
+        // Pose inference (off the main actor, on the owned downscaled buffer).
+        let trackSP = signposter.beginInterval("track")
+        let trackT0 = CACurrentMediaTime()
+        let found = await skeletonTracker.skeletons(in: posePayload, imageSize: poseDims)
+        trackMsEMA = trackMsEMA * 0.9 + (CACurrentMediaTime() - trackT0) * 1000 * 0.1
+        signposter.endInterval("track", trackSP)
+
+        // Full-frame reframe (NO zoom) → preview + record.
+        let crop = source
+        let reframeSP = signposter.beginInterval("reframe")
+        let reframeT0 = CACurrentMediaTime()
+        let renderedOpt = await reframe?.render(payload: payload, cropPixelRect: crop, sourceSize: sourceSize)
+        reframeMsEMA = reframeMsEMA * 0.9 + (CACurrentMediaTime() - reframeT0) * 1000 * 0.1
+        signposter.endInterval("reframe", reframeSP)
+        guard let rendered = renderedOpt else { return }
+
+        // FPS + 1 Hz perf log.
+        let dt = lastFrameSeconds.map { max(1.0 / 240, t - $0) } ?? 1.0 / 60
+        lastFrameSeconds = t
+        smoothedFPS = smoothedFPS == 0 ? 1.0 / dt : smoothedFPS * 0.9 + (1.0 / dt) * 0.1
+        if t - lastPerfLogT >= 1.0 {
+            lastPerfLogT = t
+            perfLog.notice("fps=\(Int(self.smoothedFPS), privacy: .public) trackMs=\(Int(self.trackMsEMA), privacy: .public) reframeMs=\(Int(self.reframeMsEMA), privacy: .public) skeletons=\(found.count, privacy: .public) thermal=\(self.thermalLevelText, privacy: .public) src=\(Int(sourceSize.width))x\(Int(sourceSize.height))")
+        }
+
+        // Record the full frame.
+        if isRecording, !thermal.mustStopRecording {
+            if recordStartPTS == .invalid { recordStartPTS = ctx.presentationTime }
+            recording?.append(pixelBuffer: rendered.pixelBuffer, presentationTime: ctx.presentationTime)
+            await monitorStorage(now: t)
+        } else if isRecording, thermal.mustStopRecording {
+            await stopRecording()
+        }
+
+        // Publish preview every frame (drives the MTKView without SwiftUI re-render).
+        latestPreviewTexture = rendered.texture
+        requestPreviewRedraw?()
+
+        // Publish skeletons + HUD state (~20 Hz).
+        if t - lastUIPublishT >= 1.0 / 20 {
+            lastUIPublishT = t
+            skeletons = found
+            subjectViewRect = nil
+            selectedSeedViewRect = nil
+            debugDetectionViewRect = nil
+            cropInSourceRect = CGRect(x: 0, y: 0, width: 1, height: 1)   // full frame
+            trackingState = found.isEmpty ? .searching : .locked
+            confidence = found.first.map {
+                Double($0.joints.map(\.confidence).reduce(0, +)) / Double(max(1, $0.joints.count))
+            } ?? 0
+            fps = smoothedFPS
+            let level = UIDevice.current.batteryLevel
+            batteryLow = level >= 0 && level < 0.2
+            if isRecording, recordStartPTS.isValid {
+                elapsed = ctx.presentationTime.seconds - recordStartPTS.seconds
+            }
+        }
+    }
+
+#if false
+    // ===== Legacy track + zoom pipeline (DISABLED — kept verbatim for re-enable) =====
+    private func handleLegacyTrackZoom(_ payload: FramePayload) async {
         let s = settingsStore.settings
         let ctx = payload.context
         let t = ctx.presentationTime.secondsOrZero
@@ -548,27 +642,35 @@ final class CameraViewModel {
             centeringMeter.updateCentroid(luma: lp)
         }
         CVPixelBufferUnlockBaseAddress(payload.pixelBuffer, .readOnly)
-        let motionCenter = centeringMeter.centroidPixels(source: sourceSize)
-        let motionRect = centeringMeter.motionRectPixels(source: sourceSize)
-
-        // Active composed target when we actually have a subject (tracking/locked).
+        // Trust the improved TrackingEngine result (CorrelationTracker + detection fusion + Kalman velocity).
+        // The engine now provides reliable smoothedCenter and velocity for crop following.
         var trackCenter: TCPoint?
         var trackSize: TCSize?
+
         if let subject = result.subjectPixelRect {
-            // Follow the tracked subject even when the Kalman smoothed center isn't available (e.g.
-            // VNTrackObjectRequest yields a box but no smoothed center) — otherwise the crop stays
-            // pinned at frame center and never follows the horse. Smooth the (often jittery) raw
-            // center with an EMA so the crop sits stably centered instead of chasing per-frame noise.
-            let raw = result.smoothedCenter ?? subject.center
-            let prev = subjectCenterEMA
-            let smoothed = prev.map {
-                TCPoint(x: $0.x + (raw.x - $0.x) * 0.35, y: $0.y + (raw.y - $0.y) * 0.35)
+            // Responsive EMA on the raw tracker center (Kalman alone lags on direction changes).
+            let raw = subject.center
+            let prevEMA = subjectCenterEMA
+            let smoothed = prevEMA.map {
+                TCPoint(x: $0.x + (raw.x - $0.x) * 0.45, y: $0.y + (raw.y - $0.y) * 0.45)
             } ?? raw
             subjectCenterEMA = smoothed
-            // Predict ahead by the smoothed per-frame velocity to compensate pan lag, so a moving
-            // (cantering) subject stays centered instead of trailing behind the crop.
-            let vel = prev.map { TCPoint(x: smoothed.x - $0.x, y: smoothed.y - $0.y) } ?? .zero
-            let center = TCPoint(x: smoothed.x + vel.x * 6, y: smoothed.y + vel.y * 6)
+            // Frame-delta lead (~4 frames) plus a short Kalman velocity boost for pipeline latency.
+            let frameVel = prevEMA.map {
+                TCPoint(x: smoothed.x - $0.x, y: smoothed.y - $0.y)
+            } ?? .zero
+            let lead = TCPoint(
+                x: frameVel.x * 4 + result.velocity.x * 0.12,
+                y: frameVel.y * 4 + result.velocity.y * 0.12
+            )
+            var center = TCPoint(x: smoothed.x + lead.x, y: smoothed.y + lead.y)
+            // Nudge toward the latest accepted detection so periodic corrections pull the crop in.
+            if lastDetectionAccepted, let det = lastDetectionPixelRect {
+                center = TCPoint(x: center.x * 0.70 + det.center.x * 0.30,
+                                 y: center.y * 0.70 + det.center.y * 0.30)
+            }
+            trackCenter = center
+
             let padded = subject.expanded(byFraction: s.subjectPadding)
             let size = s.dynamicZoomEnabled
                 ? CropMath.requiredCropSize(forPaddedSubject: padded,
@@ -576,31 +678,19 @@ final class CameraViewModel {
                                             outputAspect: aspect)
                 : Self.outputSizeTC(for: s.aspectRatio)
             trackSize = size
-            // Target the subject center exactly so it sits in the middle of the frame (no cinematic
-            // lead/offset) — the goal is the tracked object centered, not lead-room composition.
-            trackCenter = center
         }
 
+        // Simulator fixture fallback to motion metric only if tracker gave nothing.
         #if targetEnvironment(simulator)
-        // The simulator validation clip is a static-camera MOV, so frame-difference motion is the
-        // most reliable horse/rider target. Keep device behavior appearance-based because camera
-        // motion makes whole-frame motion an unsafe target signal there.
-        if let motionRect {
+        if trackCenter == nil, let motionRect = centeringMeter.motionRectPixels(source: sourceSize) {
             let subjectMotion = Self.simulatorSubjectRect(fromMotionRect: motionRect, source: sourceSize)
-            let paddedMotion = subjectMotion.expanded(byFraction: max(0.40, s.subjectPadding))
             trackCenter = subjectMotion.center
             trackSize = CropMath.requiredCropSize(
-                forPaddedSubject: paddedMotion,
-                targetSubjectHeightFraction: min(s.targetSubjectHeight, 0.33),
+                forPaddedSubject: subjectMotion.expanded(byFraction: s.subjectPadding),
+                targetSubjectHeightFraction: s.targetSubjectHeight,
                 outputAspect: aspect
             )
-        } else if let motionCenter {
-            trackCenter = motionCenter
-            trackSize = Self.outputSizeTC(for: s.aspectRatio)
         }
-        #else
-        _ = motionCenter
-        _ = motionRect
         #endif
 
         // Plan the desired crop per tracking state (incl. lost ladder), then rate-limit it (plan §10).
@@ -677,14 +767,8 @@ final class CameraViewModel {
         if t - lastUIPublishT >= 1.0 / 15 {
             lastUIPublishT = t
             trackingState = result.state
-            #if targetEnvironment(simulator)
-            let simulatorMotionViewRect = motionRect
-                .map { Self.simulatorSubjectRect(fromMotionRect: $0, source: sourceSize) }
-                .map { Self.rectInCrop($0, crop: crop) }
-            let trackedRect = simulatorMotionViewRect ?? result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
-            #else
+            // Prefer the engine's subject rect for overlays. Simulator motion is secondary.
             let trackedRect = result.subjectPixelRect.map { Self.rectInCrop($0, crop: crop) }
-            #endif
             if let trackedRect {
                 subjectViewRect = trackedRect
             } else if result.state == .searching, let selectedSeedViewRect {
@@ -714,6 +798,7 @@ final class CameraViewModel {
             }
         }
     }
+#endif
 
     // MARK: - Helpers
 

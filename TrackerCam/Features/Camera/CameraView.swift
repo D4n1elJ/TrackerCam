@@ -45,6 +45,11 @@ struct CameraView: View {
                                 aspectFill: previewAspectFill,
                                 viewSize: geo.size)
 
+                    SkeletonOverlayView(skeletons: viewModel.skeletons,
+                                        outputSize: Self.outputSize(for: viewModel.settingsStore.settings.aspectRatio),
+                                        aspectFill: previewAspectFill,
+                                        viewSize: geo.size)
+
                     previewTapLayer(size: geo.size)
 
                     controls
