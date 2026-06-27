@@ -37,6 +37,7 @@ targets:
       - path: TrackerCam
         excludes:
           - ML/MODEL_SPEC.md
+          - Features/Analysis/ANALYSIS_SPEC.md
           - Resources/sample_horse.mov
     dependencies:
       - package: TrackerCamCore

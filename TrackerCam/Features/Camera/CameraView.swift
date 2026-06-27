@@ -7,6 +7,7 @@ struct CameraView: View {
     @State var viewModel: CameraViewModel
     @State private var showSettings = false
     @State private var showRecordings = false
+    @State private var showAnalysis = false
     @AppStorage("trackercam.hasOnboarded") private var hasOnboarded = false
     @AppStorage("trackercam.showDebugHUD") private var showDebugHUD = false
     @AppStorage("trackercam.showGrid") private var showGrid = false
@@ -89,6 +90,7 @@ struct CameraView: View {
         .onDisappear { viewModel.onDisappear() }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(isPresented: $showRecordings) { RecordingsView() }
+        .sheet(isPresented: $showAnalysis) { AnalysisView() }
         // Hardware Camera Control / volume buttons start-stop recording (plan §14). Device-only.
         .onCameraCaptureEvent { event in
             if event.phase == .ended { viewModel.toggleRecording() }
@@ -185,6 +187,11 @@ struct CameraView: View {
                     }
                     .frame(width: 52, height: 52)
                     .accessibilityLabel("Recordings")
+                    Button { showAnalysis = true } label: {
+                        Image(systemName: "figure.equestrian.sports").font(.title2)
+                    }
+                    .frame(width: 52, height: 52)
+                    .accessibilityLabel("Analyze")
                 }
                 .foregroundStyle(.white)
 

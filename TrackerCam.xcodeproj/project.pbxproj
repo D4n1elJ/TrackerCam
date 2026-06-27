@@ -11,11 +11,13 @@
 		147948DE666FFC70EA2A65A0 /* OverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74883230443D7FDBA4794DC /* OverlayView.swift */; };
 		19B2CD5BDA8A88B68FD0EAEA /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C523EDBAE8290E6E82220F /* ReplayView.swift */; };
 		1DBF4814F72C6547D7314141 /* TrackingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AB0B54E07A48924CECB402 /* TrackingEngine.swift */; };
+		2613216AAFC4915C3A722988 /* ClipAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90CBA059E81777964CF52FD /* ClipAnalyzer.swift */; };
 		2BA2D15CA5333BD11326F879 /* ThermalManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548AEEEF5623022528D3B9BC /* ThermalManager.swift */; };
 		2DA8495A5A9DD9016D86081A /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2B84CA3E410DA99E7D30EA /* SettingsStore.swift */; };
 		3C6D7F739665DB02D308058C /* TrackerCamCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2AF7B24869017CB2F7EDF629 /* TrackerCamCore */; };
 		40A107DA7A2E457639E7D950 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D0F800A5F905D175907D96 /* CameraViewModel.swift */; };
 		4629EC3E8C50E166645085A5 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E7FDE4AF183CBEBACBAC4432 /* Localizable.xcstrings */; };
+		474A9E221087606D689EDF58 /* SubjectDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EAC5D7E35B7046914114707 /* SubjectDetector.swift */; };
 		4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741ACBFDF07738B5B2F1C5F7 /* Geometry+CoreGraphics.swift */; };
 		4F7AA5E0B9E87A2D44E9C56B /* CameraCapabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976243AA8EE646AE77771C54 /* CameraCapabilityTests.swift */; };
 		4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */; };
@@ -33,16 +35,22 @@
 		B02EF94B3E57052E70788B51 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D906B993FB652152809EFA1C /* Assets.xcassets */; };
 		B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880FA74AA118DDADEE66C407 /* ReframePipeline.swift */; };
 		B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */; };
+		C080C4DE27F28125353DADFE /* ClipAnnotator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF68129C093BFBBDD89B0AE /* ClipAnnotator.swift */; };
 		C3CF68BA783ABFDC91CA5D58 /* CorrelationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D658993865C10161CA56CC4A /* CorrelationTracker.swift */; };
 		C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */; };
 		CAFA2CF63898C1D0509F92BA /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */; };
 		CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */; };
 		E1ED9A4CC67CC2870020B6F4 /* RecordingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9FF827FE583EA6811CF4F0B /* RecordingsView.swift */; };
+		E303D4AF0E72FE9ACE7F4965 /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127D48EB65A00418E3D8C75 /* AnalysisView.swift */; };
+		E5834EC105F5122C14636E8E /* RiderPoseEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3776D00A8667514140EB25 /* RiderPoseEstimator.swift */; };
 		E9E5A41E8A2110737ABCF9DE /* SimulatorVideoFeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 529D904A2A6B6D4651E4652F /* SimulatorVideoFeeder.swift */; };
 		ED0B10E4891F3A208DEF8A11 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */; };
+		EF62E3F2FC3A7630D8379B2A /* HorsePoseEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF75749A7558AB0AAFA48EC /* HorsePoseEstimator.swift */; };
+		F107760482E22BCCF4C48232 /* AnalysisPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5FF6CDB440F79790A15E4BC /* AnalysisPipelineTests.swift */; };
 		F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0E2491471954DE635B579E /* MetalPreviewView.swift */; };
 		F98C5657A2166E3D76610425 /* RecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 661010AE9037A80E2C768216 /* RecordingStore.swift */; };
 		FAAFC1E28A8AF48E4AB2B2BE /* SimulatorFixture.mov in Resources */ = {isa = PBXBuildFile; fileRef = C45DD0B331200F83757EB429 /* SimulatorFixture.mov */; };
+		FAB45592055C9684C60CA429 /* AnalysisModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E96165A1FFE00352883D697 /* AnalysisModels.swift */; };
 		FBB97D9C7659CEEA9AD9EB16 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CACA31FEC3972D2FF88E5E /* CameraService.swift */; };
 /* End PBXBuildFile section */
 
@@ -58,10 +66,13 @@
 
 /* Begin PBXFileReference section */
 		1075BAAE23507C186CDEE12E /* DetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionService.swift; sourceTree = "<group>"; };
+		1127D48EB65A00418E3D8C75 /* AnalysisView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisView.swift; sourceTree = "<group>"; };
+		1E96165A1FFE00352883D697 /* AnalysisModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisModels.swift; sourceTree = "<group>"; };
 		1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		29D0F800A5F905D175907D96 /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
 		3243DE2C1554F5DDB9D37A2D /* TrackerCamCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TrackerCamCore; path = TrackerCamCore; sourceTree = SOURCE_ROOT; };
 		3C0E2491471954DE635B579E /* MetalPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalPreviewView.swift; sourceTree = "<group>"; };
+		4DF68129C093BFBBDD89B0AE /* ClipAnnotator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipAnnotator.swift; sourceTree = "<group>"; };
 		529D904A2A6B6D4651E4652F /* SimulatorVideoFeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorVideoFeeder.swift; sourceTree = "<group>"; };
 		548AEEEF5623022528D3B9BC /* ThermalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalManager.swift; sourceTree = "<group>"; };
 		5A2B84CA3E410DA99E7D30EA /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
@@ -71,6 +82,7 @@
 		811D7C6117E9354DB2784D6F /* GridOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridOverlayView.swift; sourceTree = "<group>"; };
 		84E5615BCE79D74FD8C4564D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		880FA74AA118DDADEE66C407 /* ReframePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReframePipeline.swift; sourceTree = "<group>"; };
+		8EAC5D7E35B7046914114707 /* SubjectDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectDetector.swift; sourceTree = "<group>"; };
 		907CD368107435FF0823E229 /* TrackerCam.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerCam.entitlements; sourceTree = "<group>"; };
 		91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		91CACA31FEC3972D2FF88E5E /* CameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraService.swift; sourceTree = "<group>"; };
@@ -90,13 +102,17 @@
 		D658993865C10161CA56CC4A /* CorrelationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrelationTracker.swift; sourceTree = "<group>"; };
 		D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropMetadataStreamWriter.swift; sourceTree = "<group>"; };
 		D906B993FB652152809EFA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DBF75749A7558AB0AAFA48EC /* HorsePoseEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorsePoseEstimator.swift; sourceTree = "<group>"; };
 		DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugHUDView.swift; sourceTree = "<group>"; };
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
 		E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		E4D79DF154111C4663A0B59A /* PreviewGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewGeometryTests.swift; sourceTree = "<group>"; };
 		E7FDE4AF183CBEBACBAC4432 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		E90CBA059E81777964CF52FD /* ClipAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipAnalyzer.swift; sourceTree = "<group>"; };
+		EB3776D00A8667514140EB25 /* RiderPoseEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiderPoseEstimator.swift; sourceTree = "<group>"; };
 		F0170BB81D7A521A10733D9D /* MetricsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsService.swift; sourceTree = "<group>"; };
+		F5FF6CDB440F79790A15E4BC /* AnalysisPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisPipelineTests.swift; sourceTree = "<group>"; };
 		F72914035665EC0F26C6608B /* TrackerCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrackerCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -124,6 +140,7 @@
 		05E763CFF2C698083A6EDF0C /* TrackerCamTests */ = {
 			isa = PBXGroup;
 			children = (
+				F5FF6CDB440F79790A15E4BC /* AnalysisPipelineTests.swift */,
 				976243AA8EE646AE77771C54 /* CameraCapabilityTests.swift */,
 				E4D79DF154111C4663A0B59A /* PreviewGeometryTests.swift */,
 			);
@@ -194,9 +211,24 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		704E2FCEACAA3280EF088952 /* Analysis */ = {
+			isa = PBXGroup;
+			children = (
+				1E96165A1FFE00352883D697 /* AnalysisModels.swift */,
+				1127D48EB65A00418E3D8C75 /* AnalysisView.swift */,
+				E90CBA059E81777964CF52FD /* ClipAnalyzer.swift */,
+				4DF68129C093BFBBDD89B0AE /* ClipAnnotator.swift */,
+				DBF75749A7558AB0AAFA48EC /* HorsePoseEstimator.swift */,
+				EB3776D00A8667514140EB25 /* RiderPoseEstimator.swift */,
+				8EAC5D7E35B7046914114707 /* SubjectDetector.swift */,
+			);
+			path = Analysis;
+			sourceTree = "<group>";
+		};
 		72CCD76D3EF3971BFBAF73B9 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				704E2FCEACAA3280EF088952 /* Analysis */,
 				407C07102F8D3CCFD9E63D88 /* Camera */,
 				F842AA0DB8BB6B61889D271D /* Onboarding */,
 				29C5A0ECAEA8F1424F52EE3C /* Recording */,
@@ -405,10 +437,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FAB45592055C9684C60CA429 /* AnalysisModels.swift in Sources */,
+				E303D4AF0E72FE9ACE7F4965 /* AnalysisView.swift in Sources */,
 				FBB97D9C7659CEEA9AD9EB16 /* CameraService.swift in Sources */,
 				4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */,
 				40A107DA7A2E457639E7D950 /* CameraViewModel.swift in Sources */,
 				5B1B56F7077751390045F2DC /* CenteringMeter.swift in Sources */,
+				2613216AAFC4915C3A722988 /* ClipAnalyzer.swift in Sources */,
+				C080C4DE27F28125353DADFE /* ClipAnnotator.swift in Sources */,
 				C3CF68BA783ABFDC91CA5D58 /* CorrelationTracker.swift in Sources */,
 				B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */,
 				9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */,
@@ -417,6 +453,7 @@
 				CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */,
 				4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */,
 				9D5396E5C6B1CBF1D0A4ABAF /* GridOverlayView.swift in Sources */,
+				EF62E3F2FC3A7630D8379B2A /* HorsePoseEstimator.swift in Sources */,
 				F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */,
 				616D2DFDCCDEDBC49995089A /* MetricsService.swift in Sources */,
 				94BA686DC16052BD0FBA4AEB /* MiniMapView.swift in Sources */,
@@ -428,10 +465,12 @@
 				E1ED9A4CC67CC2870020B6F4 /* RecordingsView.swift in Sources */,
 				B08CA7F623E53A05B414BA1F /* ReframePipeline.swift in Sources */,
 				19B2CD5BDA8A88B68FD0EAEA /* ReplayView.swift in Sources */,
+				E5834EC105F5122C14636E8E /* RiderPoseEstimator.swift in Sources */,
 				2DA8495A5A9DD9016D86081A /* SettingsStore.swift in Sources */,
 				897E14C4BDCBC09860AABE0D /* SettingsView.swift in Sources */,
 				61C20C6AEB426D9A9F42667D /* SidecarPlayback.swift in Sources */,
 				E9E5A41E8A2110737ABCF9DE /* SimulatorVideoFeeder.swift in Sources */,
+				474A9E221087606D689EDF58 /* SubjectDetector.swift in Sources */,
 				2BA2D15CA5333BD11326F879 /* ThermalManager.swift in Sources */,
 				6C8229D2FC823CCBDC11CBA9 /* TrackerCamApp.swift in Sources */,
 				1DBF4814F72C6547D7314141 /* TrackingEngine.swift in Sources */,
@@ -442,6 +481,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F107760482E22BCCF4C48232 /* AnalysisPipelineTests.swift in Sources */,
 				4F7AA5E0B9E87A2D44E9C56B /* CameraCapabilityTests.swift in Sources */,
 				131C7D899970C880250999FB /* PreviewGeometryTests.swift in Sources */,
 			);

@@ -20,6 +20,7 @@ import Testing
     runAspectRobustnessTests()
     runCropMetadataTests()
     runEdgeCaseTests()
+    runPoseGeometryTests()
 
     let report = "core-logic checks failed (\(failures.count)/\(checksRun)):\n" + failures.joined(separator: "\n")
     #expect(failures.isEmpty, "\(report)")
