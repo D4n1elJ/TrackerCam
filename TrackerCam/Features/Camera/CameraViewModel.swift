@@ -115,6 +115,7 @@ final class CameraViewModel {
     private var lastVelocity: TCPoint = .zero
     private var subjectCenterEMA: TCPoint?   // smoothed subject center for stable crop centering
     private var centeringMeter = CenteringMeter()   // objective tracking-quality metric (motion-based)
+    private let stillness = DeviceStillnessMonitor()   // gyro gate for motion-centering
     private var lostSince: Double?
     private var recordStartPTS: CMTime = .invalid
 
@@ -145,6 +146,7 @@ final class CameraViewModel {
         let generation = lifecycleGeneration
         guard await CameraService.requestAccess() else { permissionDenied = true; return }
         UIDevice.current.isBatteryMonitoringEnabled = true
+        stillness.start()
 
         let capabilities = CameraService.discoverCapabilities()
         if !capabilities.supports(settingsStore.settings.frameRate) {
@@ -205,6 +207,7 @@ final class CameraViewModel {
     func onDisappear() {
         lifecycleGeneration &+= 1
         camera.stopRunning()
+        stillness.stop()
 #if targetEnvironment(simulator)
         simulatorVideoFeeder?.stop()
 #endif
@@ -481,6 +484,11 @@ final class CameraViewModel {
             let generation = lifecycleGeneration
             let acquisitionMode = s.acquisitionMode
             let shouldBootstrapDetection = trackingState == .idle || trackingState == .lost || trackingScoreEMA < 25
+            // The model-free fallback detector leans on frame-difference motion and color/contrast
+            // blobs — the same static-camera assumption as motion-centering — so auto-seeding a
+            // target the user never tapped is gyro-gated too. A bundled trained model may seed
+            // regardless of device motion.
+            let allowBootstrapSeed = detection.isModelLoaded || stillness.isStill()
             detectionTask = Task { [weak self, detector, visionPayload] in
                 let detectT0 = CACurrentMediaTime()
                 let det = try? detector.detectCompoundTarget(in: visionPayload.pixelBuffer,
@@ -495,8 +503,12 @@ final class CameraViewModel {
                     if acquisitionMode == .tap {
                         accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
                     } else if shouldBootstrapDetection {
-                        await self.trackingEngine.seed(pixelRect: det.pixelRect)
-                        accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                        if allowBootstrapSeed {
+                            await self.trackingEngine.seed(pixelRect: det.pixelRect)
+                            accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                        } else {
+                            accepted = false   // handheld + heuristics only: acquisition stays tap-initiated
+                        }
                     } else if self.trackingScoreEMA >= 70, det.confidence < thr {
                         accepted = false
                     } else {
@@ -577,12 +589,24 @@ final class CameraViewModel {
             trackCenter = center
         }
 
-        // Motion-centering: the horse is the moving object, so the motion centroid is the most
-        // reliable "where is the subject" signal against a static arena. Center the crop on it
-        // (overriding the tracker, which drifts) so the subject sits in the middle of the output.
-        if let motionCenter {
-            trackCenter = motionCenter
-            if trackSize == nil { trackSize = Self.outputSizeTC(for: s.aspectRatio) }
+        // Motion-centering, gyro-gated: against a STATIC camera the frame-difference motion
+        // centroid is the most reliable "where is the subject" signal — but a handheld pan turns
+        // the whole frame into "motion" and the centroid into noise. Only let it steer while the
+        // device is physically still and a target is active; otherwise the tracker is primary.
+        let deviceStill = stillness.isStill()
+        if let motionCenter, deviceStill, result.state != .idle {
+            if let tracked = trackCenter, let subject = result.subjectPixelRect {
+                // Assist mode: nudge toward the motion centroid only when it plausibly is the
+                // tracked subject — a far-away centroid is another mover or background noise.
+                let distance = hypot(motionCenter.x - tracked.x, motionCenter.y - tracked.y)
+                if distance <= hypot(subject.width, subject.height) * 1.25 {
+                    trackCenter = TCPoint(x: (tracked.x + motionCenter.x) / 2,
+                                          y: (tracked.y + motionCenter.y) / 2)
+                }
+            } else {
+                trackCenter = motionCenter
+                if trackSize == nil { trackSize = Self.outputSizeTC(for: s.aspectRatio) }
+            }
         }
 
         // Plan the desired crop per tracking state (incl. lost ladder), then rate-limit it (plan §10).
@@ -599,9 +623,10 @@ final class CameraViewModel {
         let crop = cropController.update(dt: dt, desiredCenter: planned.center,
                                          desiredSize: planned.size, source: source)
 
-        // Objective centering metric, sampled EVERY frame (motion centroid vs the rate-limited crop)
-        // so the running average converges. `avg` is the headline number to compare runs.
-        if let centerScore = self.centeringMeter.score(crop: crop, source: sourceSize) {
+        // Objective centering metric, sampled every frame the device is still (motion centroid vs
+        // the rate-limited crop) so the running average converges. Panning frames are skipped —
+        // there the centroid measures camera motion, not the subject — keeping `avg` comparable.
+        if deviceStill, let centerScore = self.centeringMeter.score(crop: crop, source: sourceSize) {
             perfLog.notice("center score=\(String(format: "%.2f", centerScore), privacy: .public) avg=\(String(format: "%.3f", self.centeringMeter.scoreEMA), privacy: .public) n=\(self.centeringMeter.samples, privacy: .public)")
         }
 
