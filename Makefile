@@ -2,7 +2,10 @@ SHELL := /bin/zsh
 PROJECT := TrackerCam.xcodeproj
 SCHEME := TrackerCam
 DERIVED_DATA := .build-xcode
-XCODEBUILD := DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild
+# Overridable (env or make DEVELOPER_DIR=...) so CI can point at a specific Xcode; defaults to the
+# standard install path without touching the machine's global xcode-select.
+DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
+XCODEBUILD := DEVELOPER_DIR=$(DEVELOPER_DIR) xcodebuild
 
 .PHONY: validate-core validate-sim validate-app-tests validate-archive profile-checklist generate
 

@@ -20,9 +20,13 @@ jobs:
       # TrackerCamCore is framework-free and validated with Swift Testing via `swift test`.
       # The package declares swift-tools-version 6.2 and the app targets iOS 26, so the runner's
       # default /Applications/Xcode.app symlink (16.4 on macos-15) is too old — select the newest
-      # installed Xcode by version instead.
+      # installed Xcode by version instead. Export DEVELOPER_DIR too: the Makefile and verify.sh
+      # default to /Applications/Xcode.app, which would silently undo the xcode-select.
       - name: Select Xcode
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+        run: |
+          XCODE_APP="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE_APP"
+          echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
 
       - name: Show toolchain
         run: swift --version && xcodebuild -version
@@ -40,9 +44,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # Same as the core job: the iOS 26 deployment target needs the newest installed Xcode/SDK,
-      # not the runner's default symlink.
+      # not the runner's default symlink, and DEVELOPER_DIR must be exported for the Makefile.
       - name: Select Xcode
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+        run: |
+          XCODE_APP="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE_APP"
+          echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
 
       - name: Show toolchain
         run: swift --version && xcodebuild -version
