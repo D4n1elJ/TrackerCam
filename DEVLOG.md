@@ -118,6 +118,19 @@ Run on the iPhone 17 Pro with a target seeded (tap-to-track) and recording:
 
 ---
 
+## Rider-anchored tracking (shipped, awaiting device confirm)
+
+The rider is the subject element Vision's built-in APIs actually understand (there is no built-in
+horse pose — animal pose supports only cats/dogs), so the pipeline now **tracks the rider and
+frames the horse**: `VNDetectHumanBodyPoseRequest` joint boxes (falling back to human rectangles)
+produce a tight rider anchor; the tracker seeds/corrects on that anchor, and the crop centers and
+sizes on the horse+rider envelope derived from it (`DetectionService.horseAndRiderEnvelope`).
+Because body pose is a per-frame detection rather than a frame-difference heuristic, a
+rider-anchored detection may auto-bootstrap even handheld (the gyro gate still applies to the
+motion/color/saliency heuristics). Saliency/color/motion remain the fallback for riderless scenes.
+
+---
+
 ## Known bugs
 
 | # | Symptom | Status |

@@ -18,6 +18,16 @@ final class DetectionService: @unchecked Sendable {
     struct Detection: Sendable {
         var pixelRect: TCRect
         var confidence: Double
+        /// Tight rider box when the detection is anchored on a detected rider (body pose or human
+        /// rectangle). The rider is the most trackable element of the compound subject — the caller
+        /// seeds the tracker on this and frames the crop on `pixelRect` (the horse+rider envelope).
+        var riderRect: TCRect?
+
+        init(pixelRect: TCRect, confidence: Double, riderRect: TCRect? = nil) {
+            self.pixelRect = pixelRect
+            self.confidence = confidence
+            self.riderRect = riderRect
+        }
     }
 
     private let visionModel: VNCoreMLModel?
@@ -32,6 +42,10 @@ final class DetectionService: @unchecked Sendable {
     /// (Objectness, not attention: attention returns a gaze heatmap with often-empty `salientObjects`.)
     private let saliencyRequest = VNGenerateObjectnessBasedSaliencyImageRequest()
     private let humanRequest = VNDetectHumanRectanglesRequest()
+    /// Rider anchor: joint-level body pose is the most reliable built-in signal for a mounted
+    /// rider (rectangles flap at distance; there is no built-in horse pose — animal pose supports
+    /// only cats/dogs). The joint bounding box gives a tight, trackable rider patch.
+    private let bodyPoseRequest = VNDetectHumanBodyPoseRequest()
     private var previousMotionSample: [UInt8]?
 
     static var isBundledModelAvailable: Bool {
@@ -106,7 +120,7 @@ final class DetectionService: @unchecked Sendable {
         let rider = people.first { $0.iou(best.0) > 0.0 && $0.midY <= best.0.midY }
 
         let compound = CropMath.compoundSubject(horse: best.0, rider: rider, padding: 0)
-        return Detection(pixelRect: compound, confidence: best.1)
+        return Detection(pixelRect: compound, confidence: best.1, riderRect: rider)
     }
 
     /// Model-free path: objectness saliency picks a foreground subject; human rectangles help choose
@@ -118,7 +132,7 @@ final class DetectionService: @unchecked Sendable {
         let foreground = Self.detectDarkForeground(in: pixelBuffer, sourceSize: sourceSize)
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
         do {
-            try handler.perform([saliencyRequest, humanRequest])
+            try handler.perform([saliencyRequest, humanRequest, bodyPoseRequest])
         } catch {
             let r = Self.preferredFallback(horseColor: horseColor, motion: motion, foreground: foreground, sourceSize: sourceSize)
             if let r {
@@ -136,7 +150,19 @@ final class DetectionService: @unchecked Sendable {
              Double($0.confidence))
         } ?? []
         let salientCount = (saliencyRequest.results?.first as? VNSaliencyImageObservation)?.salientObjects?.count ?? 0
-        detLog.notice("acq people=\(people.count, privacy: .public) salient=\(salientCount, privacy: .public) motion=\(motion != nil, privacy: .public) brown=\(horseColor != nil, privacy: .public)")
+        let poseRiders = Self.poseBoundingBoxes(bodyPoseRequest.results ?? [], sourceSize: sourceSize)
+        detLog.notice("acq people=\(people.count, privacy: .public) pose=\(poseRiders.count, privacy: .public) salient=\(salientCount, privacy: .public) motion=\(motion != nil, privacy: .public) brown=\(horseColor != nil, privacy: .public)")
+
+        // Rider-first: the rider is the subject element Vision understands best, so when one is
+        // visible, anchor on them — track the tight rider box, frame the horse+rider envelope —
+        // instead of gambling on saliency/color/motion picking the horse. Pose joints beat plain
+        // rectangles; rectangles remain the backup when pose finds nothing.
+        let riders = poseRiders.isEmpty ? people : poseRiders
+        if let rider = Self.mostCentralPerson(riders, frameCenter: frameCenter) {
+            return Detection(pixelRect: Self.horseAndRiderEnvelope(rider: rider.0, source: sourceSize),
+                             confidence: max(0.6, rider.1),
+                             riderRect: rider.0)
+        }
 
         guard let saliency = saliencyRequest.results?.first as? VNSaliencyImageObservation,
               let objects = saliency.salientObjects, !objects.isEmpty else {
@@ -195,6 +221,30 @@ final class DetectionService: @unchecked Sendable {
         return Detection(pixelRect: compound, confidence: best.1)
     }
 
+    /// Tight rider boxes from body-pose observations: the bounding box of the confident joints,
+    /// expanded a little because joints stop short of the head/foot extremities. Confidence is the
+    /// mean joint confidence. Coordinates land in source pixels via the same normalized→pixel
+    /// (Y-flipped) mapping used for observation bounding boxes.
+    private static func poseBoundingBoxes(_ observations: [VNHumanBodyPoseObservation],
+                                          sourceSize: TCSize) -> [(TCRect, Double)] {
+        observations.compactMap { obs in
+            guard let points = try? obs.recognizedPoints(.all) else { return nil }
+            let confident = points.values.filter { $0.confidence > 0.25 }
+            guard confident.count >= 5 else { return nil }
+            var minX = 1.0, minY = 1.0, maxX = 0.0, maxY = 0.0
+            var confidenceSum = 0.0
+            for p in confident {
+                minX = min(minX, Double(p.location.x)); maxX = max(maxX, Double(p.location.x))
+                minY = min(minY, Double(p.location.y)); maxY = max(maxY, Double(p.location.y))
+                confidenceSum += Double(p.confidence)
+            }
+            let norm = TCRect(x: minX, y: minY,
+                              width: max(0.001, maxX - minX), height: max(0.001, maxY - minY))
+            let pixel = VisionGeometry.pixelRect(fromNormalized: norm, imageSize: sourceSize)
+            return (pixel.expanded(byFraction: 0.12), confidenceSum / Double(confident.count))
+        }
+    }
+
     /// The person nearest the frame center — the rider the operator is following.
     private static func mostCentralPerson(_ people: [(TCRect, Double)], frameCenter: TCPoint) -> (TCRect, Double)? {
         people.min {
@@ -206,8 +256,9 @@ final class DetectionService: @unchecked Sendable {
     }
 
     /// Horse-and-rider envelope from a rider box: the horse is longer than and extends below the
-    /// rider, so widen ~2.2× and extend down ~2.4×, clamped to the source frame.
-    private static func horseAndRiderEnvelope(rider r: TCRect, source: TCSize) -> TCRect {
+    /// rider, so widen ~2.2× and extend down ~2.4×, clamped to the source frame. Also used by the
+    /// pipeline to derive the framing rect when the tracked anchor is the rider.
+    static func horseAndRiderEnvelope(rider r: TCRect, source: TCSize) -> TCRect {
         let w = min(r.width * 2.2, source.width)
         let h = min(r.height * 2.4, source.height)
         let x = max(0, min(r.center.x - w / 2, source.width - w))
@@ -234,7 +285,8 @@ final class DetectionService: @unchecked Sendable {
                                width: w,
                                height: h)
         return Detection(pixelRect: clamp(candidate, sourceSize: sourceSize),
-                         confidence: max(0.35, rider.1))
+                         confidence: max(0.35, rider.1),
+                         riderRect: rider.0)
     }
 
     private static func scoreHuman(_ h: (TCRect, Double), _ center: TCPoint, _ diag: Double, _ size: TCSize) -> Double {

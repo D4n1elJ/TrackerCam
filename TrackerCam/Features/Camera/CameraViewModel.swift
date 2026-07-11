@@ -116,6 +116,10 @@ final class CameraViewModel {
     private var subjectCenterEMA: TCPoint?   // smoothed subject center for stable crop centering
     private var centeringMeter = CenteringMeter()   // objective tracking-quality metric (motion-based)
     private let stillness = DeviceStillnessMonitor()   // gyro gate for motion-centering
+    /// True while the tracked box is a rider (from body pose / human detection) rather than the
+    /// whole compound subject: the tracker follows the tight rider patch, and the crop frames the
+    /// horse+rider envelope derived from it.
+    private var trackedTargetIsRider = false
     private var lostSince: Double?
     private var recordStartPTS: CMTime = .invalid
 
@@ -255,6 +259,7 @@ final class CameraViewModel {
                           size: TCSize(width: source.width * 0.3, height: source.height * 0.3))
             selectedSeedViewRect = nil
         }
+        trackedTargetIsRider = false   // a tap seeds a generic patch until detection re-anchors
         cropController.reset()   // snap to the new target rather than slewing from the old crop
         targetTask?.cancel()
         targetTask = Task { await trackingEngine.seed(pixelRect: seed) }
@@ -270,6 +275,7 @@ final class CameraViewModel {
         debugDetectionAccepted = false
         lastDetectionPixelRect = nil
         lastDetectionAccepted = false
+        trackedTargetIsRider = false
         trackingState = .idle
         confidence = 0
         targetTask?.cancel()
@@ -499,22 +505,28 @@ final class CameraViewModel {
                 guard self.isCurrentGeneration(generation) else { return }
                 self.recordDetectionLatency(detectMs)
                 if let det {
+                    // Track the rider when one was detected: the tight rider box is the anchor the
+                    // tracker follows; the envelope (det.pixelRect) is only for framing.
+                    let anchor = det.riderRect ?? det.pixelRect
                     let accepted: Bool
                     if acquisitionMode == .tap {
-                        accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                        accepted = await self.trackingEngine.applyDetection(pixelRect: anchor, confidence: det.confidence)
                     } else if shouldBootstrapDetection {
-                        if allowBootstrapSeed {
-                            await self.trackingEngine.seed(pixelRect: det.pixelRect)
-                            accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                        // A rider found via body pose is a per-frame detection, not a
+                        // frame-difference heuristic, so it may bootstrap even on a moving phone.
+                        if allowBootstrapSeed || det.riderRect != nil {
+                            await self.trackingEngine.seed(pixelRect: anchor)
+                            accepted = await self.trackingEngine.applyDetection(pixelRect: anchor, confidence: det.confidence)
                         } else {
                             accepted = false   // handheld + heuristics only: acquisition stays tap-initiated
                         }
                     } else if self.trackingScoreEMA >= 70, det.confidence < thr {
                         accepted = false
                     } else {
-                        accepted = await self.trackingEngine.applyDetection(pixelRect: det.pixelRect, confidence: det.confidence)
+                        accepted = await self.trackingEngine.applyDetection(pixelRect: anchor, confidence: det.confidence)
                     }
-                    self.lastDetectionPixelRect = det.pixelRect
+                    if accepted { self.trackedTargetIsRider = det.riderRect != nil }
+                    self.lastDetectionPixelRect = anchor
                     self.lastDetectionAccepted = accepted
                 } else {
                     self.lastDetectionPixelRect = nil
@@ -562,12 +574,23 @@ final class CameraViewModel {
         // Active composed target when we actually have a subject (tracking/locked).
         var trackCenter: TCPoint?
         var trackSize: TCSize?
+        var framingRect: TCRect?
         if let subject = result.subjectPixelRect {
+            // When the tracked anchor is the rider, the shot must still contain the horse under
+            // them: frame (center + size) the horse+rider envelope derived from the rider box.
+            let framing = trackedTargetIsRider
+                ? DetectionService.horseAndRiderEnvelope(rider: subject, source: sourceSize)
+                : subject
+            framingRect = framing
             // Follow the tracked subject even when the Kalman smoothed center isn't available (e.g.
             // VNTrackObjectRequest yields a box but no smoothed center) — otherwise the crop stays
             // pinned at frame center and never follows the horse. Smooth the (often jittery) raw
             // center with an EMA so the crop sits stably centered instead of chasing per-frame noise.
-            let raw = result.smoothedCenter ?? subject.center
+            // The Kalman smooths the tracked anchor, so shift its output by the anchor→framing
+            // offset to aim at the framing center.
+            let anchorCenter = result.smoothedCenter ?? subject.center
+            let raw = TCPoint(x: anchorCenter.x + (framing.center.x - subject.center.x),
+                              y: anchorCenter.y + (framing.center.y - subject.center.y))
             let prev = subjectCenterEMA
             let smoothed = prev.map {
                 TCPoint(x: $0.x + (raw.x - $0.x) * 0.35, y: $0.y + (raw.y - $0.y) * 0.35)
@@ -577,7 +600,7 @@ final class CameraViewModel {
             // (cantering) subject stays centered instead of trailing behind the crop.
             let vel = prev.map { TCPoint(x: smoothed.x - $0.x, y: smoothed.y - $0.y) } ?? .zero
             let center = TCPoint(x: smoothed.x + vel.x * 6, y: smoothed.y + vel.y * 6)
-            let padded = subject.expanded(byFraction: s.subjectPadding)
+            let padded = framing.expanded(byFraction: s.subjectPadding)
             let size = s.dynamicZoomEnabled
                 ? CropMath.requiredCropSize(forPaddedSubject: padded,
                                             targetSubjectHeightFraction: s.targetSubjectHeight,
@@ -595,11 +618,13 @@ final class CameraViewModel {
         // device is physically still and a target is active; otherwise the tracker is primary.
         let deviceStill = stillness.isStill()
         if let motionCenter, deviceStill, result.state != .idle {
-            if let tracked = trackCenter, let subject = result.subjectPixelRect {
+            if let tracked = trackCenter, let framing = framingRect {
                 // Assist mode: nudge toward the motion centroid only when it plausibly is the
                 // tracked subject — a far-away centroid is another mover or background noise.
+                // Compare against the framing rect: with a rider anchor, the moving horse is
+                // inside the envelope, not the small rider box.
                 let distance = hypot(motionCenter.x - tracked.x, motionCenter.y - tracked.y)
-                if distance <= hypot(subject.width, subject.height) * 1.25 {
+                if distance <= hypot(framing.width, framing.height) * 1.25 {
                     trackCenter = TCPoint(x: (tracked.x + motionCenter.x) / 2,
                                           y: (tracked.y + motionCenter.y) / 2)
                 }
