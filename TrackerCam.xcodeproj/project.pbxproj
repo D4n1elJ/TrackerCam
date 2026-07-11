@@ -21,6 +21,7 @@
 		4FFFEDA66C99F96302CD11D0 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8671DCF3F0B3D56ED5944 /* CameraView.swift */; };
 		530D9230A80D0176201BF46C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */; };
 		5B1B56F7077751390045F2DC /* CenteringMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEFE90496EC626B16D208019 /* CenteringMeter.swift */; };
+		3E58A0D7C19B34F6D82E5B90 /* DeviceStillnessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3A91C2B4E6F0185A2C9E41 /* DeviceStillnessMonitor.swift */; };
 		5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1075BAAE23507C186CDEE12E /* DetectionService.swift */; };
 		616D2DFDCCDEDBC49995089A /* MetricsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0170BB81D7A521A10733D9D /* MetricsService.swift */; };
 		61C20C6AEB426D9A9F42667D /* SidecarPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945DCC1F528C76BD80E3A8A3 /* SidecarPlayback.swift */; };
@@ -73,6 +74,7 @@
 		880FA74AA118DDADEE66C407 /* ReframePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReframePipeline.swift; sourceTree = "<group>"; };
 		907CD368107435FF0823E229 /* TrackerCam.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrackerCam.entitlements; sourceTree = "<group>"; };
 		91157AAD3BCBF4FF6F14BB74 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7D3A91C2B4E6F0185A2C9E41 /* DeviceStillnessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStillnessMonitor.swift; sourceTree = "<group>"; };
 		91CACA31FEC3972D2FF88E5E /* CameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraService.swift; sourceTree = "<group>"; };
 		92C523EDBAE8290E6E82220F /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		945DCC1F528C76BD80E3A8A3 /* SidecarPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarPlayback.swift; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
 			isa = PBXGroup;
 			children = (
 				91CACA31FEC3972D2FF88E5E /* CameraService.swift */,
+				7D3A91C2B4E6F0185A2C9E41 /* DeviceStillnessMonitor.swift */,
 				A3B1EAF5219D944A7D98AF87 /* FrameRouter.swift */,
 				529D904A2A6B6D4651E4652F /* SimulatorVideoFeeder.swift */,
 				548AEEEF5623022528D3B9BC /* ThermalManager.swift */,
@@ -414,6 +417,7 @@
 				9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */,
 				C78674D428B6E29B53614E51 /* DebugHUDView.swift in Sources */,
 				5FC42D0C1E2D6028CE1617E8 /* DetectionService.swift in Sources */,
+				3E58A0D7C19B34F6D82E5B90 /* DeviceStillnessMonitor.swift in Sources */,
 				CC682078ECD3CBD0B6045D8A /* FrameRouter.swift in Sources */,
 				4BF367BE6CA47E1E159D606B /* Geometry+CoreGraphics.swift in Sources */,
 				9D5396E5C6B1CBF1D0A4ABAF /* GridOverlayView.swift in Sources */,

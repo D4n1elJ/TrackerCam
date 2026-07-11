@@ -118,12 +118,26 @@ Run on the iPhone 17 Pro with a target seeded (tap-to-track) and recording:
 
 ---
 
+## Rider-anchored tracking (shipped, awaiting device confirm)
+
+The rider is the subject element Vision's built-in APIs actually understand (there is no built-in
+horse pose — animal pose supports only cats/dogs), so the pipeline now **tracks the rider and
+frames the horse**: `VNDetectHumanBodyPoseRequest` joint boxes (falling back to human rectangles)
+produce a tight rider anchor; the tracker seeds/corrects on that anchor, and the crop centers and
+sizes on the horse+rider envelope derived from it (`DetectionService.horseAndRiderEnvelope`).
+Because body pose is a per-frame detection rather than a frame-difference heuristic, a
+rider-anchored detection may auto-bootstrap even handheld (the gyro gate still applies to the
+motion/color/saliency heuristics). Saliency/color/motion remain the fallback for riderless scenes.
+
+---
+
 ## Known bugs
 
 | # | Symptom | Status |
 |---|---------|--------|
 | 1 | Preview squeezed/skewed (16:9 stretched onto full screen) | **Fixed & confirmed on device** — blit aspect-fits + letterboxes. |
 | 2 | Preview rotated 90° | **Fix shipped, awaiting device confirm** — root cause was the capture connection's `videoRotationAngle` never being set; now applied via `AVCaptureDevice.RotationCoordinator` (matches how the phone is physically held) + per-frame buffer dims. Because rotation is handled at capture, recordings inherit the correct orientation too. *Follow-up:* update the angle live on device rotation (currently set once at configure). |
+| 3 | Handheld: crop wanders on its own and ignores tap-to-track | **Fix shipped, awaiting device confirm** — motion-centering (fixture-validated, static camera) unconditionally overrode the tracker with the frame-difference motion centroid; handheld shake/pan makes the whole frame "motion", so the crop chased noise (and auto-acquire's heuristic fallback seeded targets without a tap, so it wandered even idle). Now gyro-gated via `DeviceStillnessMonitor` (CoreMotion): the tracker is primary; the motion centroid only steers when the device has been physically still ≥0.5 s, only while a target is active, and only assists (blend, proximity-gated) when the tracker already has a subject. Model-free (heuristic) auto-acquire seeding is gated the same way — it relies on the same frame-difference signals — so on a moving phone acquisition is tap-initiated until a trained model is bundled. Centering-metric samples are likewise skipped while panning so `avg` stays comparable. |
 
 ### Signing note
 Headless `xcodebuild -allowProvisioningUpdates` (personal team) intermittently fails with
