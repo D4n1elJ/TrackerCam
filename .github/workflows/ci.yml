@@ -18,10 +18,11 @@ jobs:
       - uses: actions/checkout@v4
 
       # TrackerCamCore is framework-free and validated with Swift Testing via `swift test`.
-      # Select the newest available Xcode so the Swift 6.x toolchain is used (the package targets
-      # the Swift 6 language mode). If the runner image lags the project's Xcode, bump this.
+      # The package declares swift-tools-version 6.2 and the app targets iOS 26, so the runner's
+      # default /Applications/Xcode.app symlink (16.4 on macos-15) is too old — select the newest
+      # installed Xcode by version instead.
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
       - name: Show toolchain
         run: swift --version && xcodebuild -version
@@ -38,8 +39,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Same as the core job: the iOS 26 deployment target needs the newest installed Xcode/SDK,
+      # not the runner's default symlink.
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Show toolchain
+        run: swift --version && xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
