@@ -49,6 +49,7 @@
 		ED0B10E4891F3A208DEF8A11 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */; };
 		EF62E3F2FC3A7630D8379B2A /* HorsePoseEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF75749A7558AB0AAFA48EC /* HorsePoseEstimator.swift */; };
 		F107760482E22BCCF4C48232 /* AnalysisPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5FF6CDB440F79790A15E4BC /* AnalysisPipelineTests.swift */; };
+		F3FB71543C6DE9DE68DB9047 /* ClipTrimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFB80B47B25C4B7554858F93 /* ClipTrimmer.swift */; };
 		F4E302528430B53C17EF4E79 /* MetalPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0E2491471954DE635B579E /* MetalPreviewView.swift */; };
 		F98C5657A2166E3D76610425 /* RecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 661010AE9037A80E2C768216 /* RecordingStore.swift */; };
 		FAAFC1E28A8AF48E4AB2B2BE /* SimulatorFixture.mov in Resources */ = {isa = PBXBuildFile; fileRef = C45DD0B331200F83757EB429 /* SimulatorFixture.mov */; };
@@ -107,6 +108,7 @@
 		D906B993FB652152809EFA1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DBF75749A7558AB0AAFA48EC /* HorsePoseEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorsePoseEstimator.swift; sourceTree = "<group>"; };
 		DCC97B1F35DC7EDC2C3C97E4 /* DebugHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugHUDView.swift; sourceTree = "<group>"; };
+		DFB80B47B25C4B7554858F93 /* ClipTrimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipTrimmer.swift; sourceTree = "<group>"; };
 		E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
 		E31DAEA00F4A4A23F19CD59E /* TrackerCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerCamApp.swift; sourceTree = "<group>"; };
 		E351BF54E95BEECA4B5D8B51 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -175,6 +177,7 @@
 		29C5A0ECAEA8F1424F52EE3C /* Recording */ = {
 			isa = PBXGroup;
 			children = (
+				DFB80B47B25C4B7554858F93 /* ClipTrimmer.swift */,
 				D8521D09405BA05AB6E94C6E /* CropMetadataStreamWriter.swift */,
 				E0ABF84FAC64BE19BBB21AC4 /* RecordingService.swift */,
 				661010AE9037A80E2C768216 /* RecordingStore.swift */,
@@ -451,6 +454,7 @@
 				5B1B56F7077751390045F2DC /* CenteringMeter.swift in Sources */,
 				2613216AAFC4915C3A722988 /* ClipAnalyzer.swift in Sources */,
 				C080C4DE27F28125353DADFE /* ClipAnnotator.swift in Sources */,
+				F3FB71543C6DE9DE68DB9047 /* ClipTrimmer.swift in Sources */,
 				C3CF68BA783ABFDC91CA5D58 /* CorrelationTracker.swift in Sources */,
 				B8CE3C1C6902922FEB933495 /* CropMetadataStreamWriter.swift in Sources */,
 				9A0F78A50985DA2EDCB3D77E /* CropShader.metal in Sources */,
