@@ -10,8 +10,9 @@ import TrackerCamCore
 /// pure `PoseGeometry` math and the annotator share one coordinate convention.
 ///
 /// SIMULATOR NOTE: like the Core ML detectors, body-pose leans on ANE/espresso and may fail in the
-/// simulator ("Failed to create espresso context"). It is reliable on device. The analyzer treats a
-/// nil result as "no rider this frame" and continues.
+/// simulator ("Missing weights path cnn_human_pose.espresso.weights" / "Failed to create espresso
+/// context"). Simulator builds therefore skip the request entirely. Device builds compile the normal
+/// Vision path unchanged.
 ///
 /// SWAP-IN: to use MediaPipe instead (e.g. for parity with a desktop pipeline), implement
 /// `RiderPosing` with the MediaPipe Tasks `PoseLandmarker` and map its 33 landmarks to `TCRiderJoint`.
@@ -24,8 +25,9 @@ protocol RiderPosing: Sendable {
                   regionOfInterest: CGRect?) -> TCSkeleton?
 }
 
-final class VisionRiderPoseEstimator: RiderPosing {
+final class VisionRiderPoseEstimator: RiderPosing, @unchecked Sendable {
     private let minJointConfidence: Float
+    private let request = VNDetectHumanBodyPoseRequest()
 
     /// Vision joint → our portable enum. Only the joints we measure are mapped.
     private static let mapping: [VNHumanBodyPoseObservation.JointName: TCRiderJoint] = [
@@ -46,9 +48,13 @@ final class VisionRiderPoseEstimator: RiderPosing {
     func skeleton(in pixelBuffer: CVPixelBuffer,
                   imageSize: TCSize,
                   regionOfInterest: CGRect?) -> TCSkeleton? {
-        let request = VNDetectHumanBodyPoseRequest()
+#if targetEnvironment(simulator)
+        // The simulator runtime does not contain Vision's human-pose model weights. Avoiding the
+        // request also avoids the many Espresso diagnostics emitted by each attempted frame.
+        return nil
+#else
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
-        if let roi = regionOfInterest { request.regionOfInterest = roi }
+        request.regionOfInterest = regionOfInterest ?? CGRect(x: 0, y: 0, width: 1, height: 1)
         do {
             try handler.perform([request])
         } catch {
@@ -64,6 +70,7 @@ final class VisionRiderPoseEstimator: RiderPosing {
             Self.score($0, imageSize: imageSize, regionOfInterest: regionOfInterest) <
                 Self.score($1, imageSize: imageSize, regionOfInterest: regionOfInterest)
         }
+#endif
     }
 
     private static func skeleton(from observation: VNHumanBodyPoseObservation,

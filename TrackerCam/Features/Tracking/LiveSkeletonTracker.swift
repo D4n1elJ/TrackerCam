@@ -1,7 +1,10 @@
 import Vision
 import CoreVideo
 import CoreGraphics
+import os
 import TrackerCamCore
+
+private let skeletonLog = Logger(subsystem: "com.trackercam.app", category: "live-skeleton")
 
 /// Which subjects to detect. Exposed to the UI as a segmented toggle.
 enum SkeletonSubjectMode: String, CaseIterable, Sendable {
@@ -56,7 +59,8 @@ struct SkeletonOverlay: Identifiable, Sendable, Equatable {
 /// non-Sendable pixel buffer never escapes. Output is temporally smoothed (EMA per joint, with a short
 /// hold over momentary dropouts) so the overlay doesn't jitter.
 ///
-/// SIMULATOR: body pose is ANE-backed and does NOT run in the simulator — validate on device.
+/// SIMULATOR: body pose is ANE-backed and usually fails with missing espresso weights. After the
+/// first hard failure we short-circuit and log once so the live pipeline doesn't spam espresso.
 actor LiveSkeletonTracker {
     private(set) var mode: SkeletonSubjectMode = .both
     func setMode(_ m: SkeletonSubjectMode) { mode = m; previous = [] }
@@ -71,9 +75,16 @@ actor LiveSkeletonTracker {
     private let matchThreshold: CGFloat = 0.2
 
     private var previous: [SkeletonOverlay] = []
+    /// True after Vision/espresso reports pose models unavailable (typical on Simulator).
+    private var poseModelsUnavailable = false
+    private var didLogUnavailable = false
 
     /// Detect + smooth skeletons in the (already downscaled) frame. Results are normalized [0,1].
     func skeletons(in payload: FramePayload, imageSize: TCSize) -> [SkeletonOverlay] {
+        if poseModelsUnavailable {
+            return []
+        }
+
         let handler = VNImageRequestHandler(cvPixelBuffer: payload.pixelBuffer, orientation: .up, options: [:])
 
         var requests: [VNRequest] = []
@@ -81,7 +92,15 @@ actor LiveSkeletonTracker {
         let animalRequest = mode.detectsAnimal ? VNDetectAnimalBodyPoseRequest() : nil
         if let humanRequest { requests.append(humanRequest) }
         if let animalRequest { requests.append(animalRequest) }
-        guard !requests.isEmpty, (try? handler.perform(requests)) != nil else {
+        guard !requests.isEmpty else {
+            previous = []
+            return []
+        }
+
+        do {
+            try handler.perform(requests)
+        } catch {
+            markUnavailable(reason: error.localizedDescription)
             previous = []
             return []
         }
@@ -102,9 +121,25 @@ actor LiveSkeletonTracker {
             }
         }
 
+        // Simulator often returns empty while espresso spam-logs missing weights — stop after one try.
+#if targetEnvironment(simulator)
+        if raw.isEmpty {
+            markUnavailable(reason: "empty results (likely missing espresso model weights)")
+            previous = []
+            return []
+        }
+#endif
+
         let smoothed = smooth(raw)
         previous = smoothed
         return smoothed
+    }
+
+    private func markUnavailable(reason: String) {
+        poseModelsUnavailable = true
+        guard !didLogUnavailable else { return }
+        didLogUnavailable = true
+        skeletonLog.warning("Body/animal pose unavailable — skipping further requests (\(reason, privacy: .public)). Common on Simulator; device path is unaffected until a real failure.")
     }
 
     // MARK: - Temporal smoothing
